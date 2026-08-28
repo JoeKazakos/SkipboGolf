@@ -27,3 +27,6 @@ coverage/
 # System files
 .DS_Store
 Thumbs.db
+
+# Subagent git worktrees
+.claude/worktrees/
