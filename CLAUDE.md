@@ -6,7 +6,10 @@ This file provides project context and working rules for Claude-based agents.
 
 - Repository purpose: define and implement the Skip-Bo Golf card game.
 - Canonical rules document: game-description.md at repo root.
-- Frontend app: skipbo-golf-app/skipbo-golf.
+- Section 15 of that document records every resolved ambiguity, including two
+  deliberate changes to the game as originally written. Read it before touching
+  rule code.
+- Frontend app: React + Vite at the repo root (src/).
 
 ## Source of Truth
 
@@ -16,12 +19,24 @@ This file provides project context and working rules for Claude-based agents.
 
 ## Development Commands
 
-Run commands from skipbo-golf-app/skipbo-golf:
+Run commands from the repo root:
 
 - Install: npm install
-- Dev server: npm start
+- Dev server: npm run dev
 - Build: npm run build
 - Unit tests: npm test
+- AI self-play Elo ladder: npm run arena
+
+## Layout
+
+- src/engine/ - the rules, pure TypeScript, no React or DOM imports
+- src/ai/ - opponents: heuristic evaluation and Information Set MCTS
+- src/ui/ - React components
+- scripts/ - Playwright drivers that run the real app in a browser
+
+Dependencies point one way only: ui -> ai -> engine. Keep the engine free of
+React and DOM imports so it can run in Node for tests and in a Web Worker for
+search.
 
 ## Coding Conventions
 
