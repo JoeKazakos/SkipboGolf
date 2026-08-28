@@ -309,7 +309,9 @@ body {
 }
 
 .grid--lg {
-  gap: 8px;
+  /* The coordinate label hangs below each spot, so row-gap must clear it. */
+  column-gap: 8px;
+  row-gap: 20px;
 }
 
 .spot {
@@ -602,6 +604,9 @@ button.spot--legal:focus-visible .card {
   border-radius: 9px;
   display: block;
   line-height: 0;
+  /* Reserve room for the "take"/"draw" caption, which is absolutely
+     positioned below the card and would otherwise collide with the count. */
+  margin-bottom: 18px;
 }
 
 .pile-btn .card {
