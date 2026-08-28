@@ -54,7 +54,7 @@ You can draw from any other player's discard pile, but only the top card of that
 For each discard pile, only the top three cards are visible to all players.
 Cards below the top card in a discard pile are not available unless the cards above them are removed first.
 
-If the face-down draw pile is empty, players cannot draw from it and must draw from any other legal source.
+If the face-down draw pile is empty, it is rebuilt by reshuffling the discard piles. See section 15.8.
 
 Example:
 
@@ -86,6 +86,8 @@ You may replace either:
 The card that was replaced is now the card you are holding.
 
 After the replacement, you either discard that card or use it for a wave if it matches an existing card in your play area.
+
+See section 15.2: placing the drawn card is optional, and section 15.11 for the precise turn structure.
 
 Example:
 
@@ -171,25 +173,65 @@ The same rule applies each time:
 
 Longer wave example:
 
-- You have a visible 8 in row 1, column 4.
-- Directly beneath it is a face-down card.
-- You are holding another 8.
-- You wave the 8 into row 2, column 4.
-- The card that was in row 2, column 4 becomes your new held card.
-- That removed card is a 1, and you already have a visible 1 in row 2, column 5.
-- You may wave again.
+This example is fully worked through, step by step, and is used as a test fixture
+by the implementation. `?` marks a face-down card.
 
-Board after the first wave:
+Board at the start of your turn:
 
 ```text
-Row 1: [ 8 ]  [ 3 ] [ ? ] [ ? ] [ ? ]
+Row 1: [ ? ]  [ 3 ] [ ? ] [ 8 ] [ ? ]
+Row 2: [ 12 ] [ ? ] [ 7 ] [ ? ] [ 1 ]
+```
+
+Visible: the 3 at row 1 column 2, the 8 at row 1 column 4, the 12 at row 2 column 1,
+the 7 at row 2 column 3, and the 1 at row 2 column 5.
+
+You draw an 8 from the centre.
+
+Step 1. You place the 8 into row 2, column 4, directly opposite the visible 8.
+The face-down card there is revealed to be a 1 and becomes your held card.
+Row 2, column 4 is now locked for the rest of this turn.
+
+```text
+Row 1: [ ? ]  [ 3 ] [ ? ] [ 8 ] [ 1 ]   <- held: 1
+Row 2: [ 12 ] [ ? ] [ 7 ] [ 8 ] [ 1 ]
+```
+
+Step 2. You hold a 1 and there is a visible 1 at row 2, column 5.
+You wave the 1 into row 1, column 5. That card is revealed to be a 3 and becomes your held card.
+Row 1, column 5 is now locked.
+
+Step 3. You hold a 3 and there is a visible 3 at row 1, column 2.
+You wave the 3 into row 2, column 2. That card is revealed to be a 12 and becomes your held card.
+Row 2, column 2 is now locked.
+
+Step 4. You hold a 12 and there is a visible 12 at row 2, column 1.
+You wave the 12 into row 1, column 1. That card is revealed to be a 7 and becomes your held card.
+Row 1, column 1 is now locked.
+
+Step 5. You hold a 7 and there is a visible 7 at row 2, column 3.
+You wave the 7 into row 1, column 3. That card is revealed to be a 5 and becomes your held card.
+Row 1, column 3 is now locked.
+
+Board after step 5:
+
+```text
+Row 1: [ 12 ] [ 3 ] [ 7 ] [ 8 ] [ 1 ]   <- held: 5
 Row 2: [ 12 ] [ 3 ] [ 7 ] [ 8 ] [ 1 ]
 ```
 
-If you wave the 1 into row 1, column 5, the card that was there is removed and becomes your new held card.
-If that removed card is a 3 and you already have a visible 3 in row 1, column 2, you may wave again.
+Step 6. You hold a 5. There is no visible 5 anywhere in your play area, so you cannot wave.
+You discard the 5 and your turn ends.
 
-The important rule is the same every time: each wave moves the held card into the opposite row of the matching column, removes the card that was in that spot, and turns that removed card into the new held card.
+All 10 of your cards are now face up, so this turn triggers the end of the round.
+Every other player takes one final turn, and then the round is scored.
+
+This play area scores 0: every column is a matching pair, and no 2 x 2 square is formed.
+
+The important rule is the same every time: each wave moves the held card into the opposite
+row of the matching column, removes the card that was in that spot, and turns that removed
+card into the new held card. A spot that has already been played into this turn cannot be
+played into again.
 
 ## 10. Discarding
 
@@ -318,6 +360,84 @@ After scoring that round, the player with the lowest score wins the game.
 - The game is one round total.
 - Lowest score in that round wins.
 
-## 15. Source of Truth
+## 15. Clarifications and Rulings
+
+The following points were ambiguous, unstated, or self-contradictory in earlier versions
+of this document. They were resolved deliberately and are binding on the implementation.
+Items marked **[RULES CHANGE]** alter the game as originally written; all others only make
+explicit what was already implied.
+
+### 15.1 A spot may be played into only once per turn
+
+The spot you place your drawn card into is locked for the remainder of that turn, and so is
+every spot you subsequently wave into. You may not play into a locked spot again, even if a
+later wave would legally match it.
+
+This makes a turn at most 10 placements long and makes an endless wave chain impossible.
+
+### 15.2 Placing the drawn card is optional **[RULES CHANGE]**
+
+Section 6 as originally written required you to place the drawn card into your grid. You may
+instead discard the drawn card immediately, ending your turn without changing your play area.
+
+### 15.3 Waving is always optional
+
+Whenever you are holding a card you may choose to discard it and end your turn, even when a
+legal wave is available. You are never forced to wave.
+
+### 15.4 Every card placed into the grid is face up
+
+Any card entering the play area, whether by the initial replacement or by a wave, is placed
+face up and remains face up. Only cards from the original deal are ever face down. This is
+what makes the round-end condition in section 11 reachable.
+
+### 15.5 The round-end check happens at the end of a completed turn
+
+A wave chain may turn your tenth card face up while you are still holding a card. The turn
+still completes normally: you stop waving and discard the held card. The "all 10 face up"
+check is then applied. Every turn therefore ends with exactly one discard.
+
+### 15.6 All hands are revealed for scoring
+
+At round end every player's play area is turned face up and scored by section 12 exactly as
+it lies. Face-down cards carry no penalty. The score of 9999 applies only to a genuinely
+malformed hand, that is one with fewer than 10 cards or a card with no rank. It never applies
+to a hand that merely still contains face-down cards.
+
+### 15.7 Going face up during the final turn cycle has no special effect
+
+If a player other than the one who triggered the round end also reaches 10 face-up cards
+during the final turn cycle, nothing changes. The cycle completes and everyone scores.
+
+### 15.8 Exhausting the draw pile triggers a reshuffle **[RULES CHANGE]**
+
+If the face-down draw pile is empty, gather every discard pile except the top card of each,
+shuffle them, and place the result face down as the new draw pile. Each player keeps the top
+card of their own discard pile. This guarantees that a legal draw source always exists.
+
+### 15.9 Each player has exactly one discard pile
+
+Section 10's phrase "the active discard pile" is loose wording. Six players have six discard
+piles, one each.
+
+### 15.10 The centre card remains available until taken
+
+The face-up centre card is a legal draw source for any player on any turn until somebody
+takes it. Once taken it is never replaced and there is no centre card for the rest of the
+round.
+
+### 15.11 Turn structure, stated precisely
+
+A turn is a sequence of placements ending in exactly one discard:
+
+1. Take one card from a legal source. It becomes your held card.
+2. Optionally place the held card into any unlocked spot in your play area. The first
+   placement of the turn may target any spot. Every later placement must be a legal wave:
+   the held card's rank must match a visible card, and it must go into the opposite row of
+   that card's column. The displaced card becomes your new held card and the spot locks.
+3. Repeat step 2 as long as you wish and legal waves remain.
+4. Discard the held card. Your turn ends.
+
+## 16. Source of Truth
 
 This document is the canonical how-to-play reference for Skip-Bo Golf. If any later document disagrees with this one, this file should be treated as the game rules to follow.
