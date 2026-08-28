@@ -540,6 +540,11 @@ button.spot--legal:focus-visible .card {
   border: 2px dashed rgba(255, 255, 255, 0.28);
   box-shadow: none;
   color: var(--felt-ink-soft);
+  /* Centre the caption and keep it inside the dashed box on small cards. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .card__empty-label {
@@ -549,6 +554,11 @@ button.spot--legal:focus-visible .card {
   line-height: 1.1;
   text-align: center;
   padding: 2px;
+}
+
+.card--sm .card__empty-label {
+  font-size: 0.48rem;
+  letter-spacing: 0.03em;
 }
 
 .card--held {

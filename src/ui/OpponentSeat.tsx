@@ -77,7 +77,9 @@ export function OpponentSeat({
             <DiscardFan cards={discardTop3} />
           </div>
         ) : (
-          <CardSlotEmpty size="sm" label="no discards" />
+          // Kept short: the caption below already reads "Discard (0)", and a
+          // longer word does not fit inside the small placeholder.
+          <CardSlotEmpty size="sm" label="none" />
         )}
         <span className="mini-label mini-label--center">discard ({discardCount})</span>
       </div>
