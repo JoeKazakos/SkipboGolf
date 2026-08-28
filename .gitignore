@@ -1,0 +1,28 @@
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build output
+dist/
+out-tsc/
+.angular/cache/
+
+# Test/coverage output
+coverage/
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+
+# Claude Code local overrides
+.claude/settings.local.json
+
+# System files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,70 @@
+<main class="card-game-main">
+  <h1>{{ title() }}</h1>
+  <div class="deck-info">
+    <span>Deck: {{ deck().length }} cards left</span>
+    <button (click)="dealHand()" [disabled]="deck().length < 5">Deal Hand</button>
+    <button (click)="resetGame()">Reset Deck</button>
+  </div>
+  <div class="hand-display">
+    <h2>Your Hand</h2>
+    <div class="cards">
+      @if (hand().length > 0) {
+        <div class="row">
+          @for (card of hand().slice(0, 5); track card.rank + '-' + $index) {
+            <div class="card"
+              [class.blue-card]="['1','2','3','4'].includes(card.rank)"
+              [class.green-card]="['5','6','7','8'].includes(card.rank)"
+              [class.red-card]="['9','10','11','12'].includes(card.rank)"
+              [class.orange-card]="card.rank === '13'"
+              (click)="startEditCard($index)"
+            >
+              @if (editingCardIndex() === $index) {
+                <mat-form-field appearance="fill" style="width: 60px; margin: 0;">
+                  <mat-select [value]="card.rank" (selectionChange)="setCardRank($index, $event.value)" [disableOptionCentering]="true" autoActiveFirstOption>
+                    @for (r of allRanks; track r) {
+                      <mat-option [value]="r">{{ r === '13' ? '&' : r }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                }
+                @else {
+                <span class="rank">{{ card.rank === '13' ? '&' : card.rank }}</span>
+              }
+            </div>
+          }
+        </div>
+        <div class="row">
+          @for (card of hand().slice(5, 10); track card.rank + '-' + $index) {
+            <div class="card"
+              [class.blue-card]="['1','2','3','4'].includes(card.rank)"
+              [class.green-card]="['5','6','7','8'].includes(card.rank)"
+              [class.red-card]="['9','10','11','12'].includes(card.rank)"
+              [class.orange-card]="card.rank === '13'"
+              (click)="startEditCard($index + 5)"
+            >
+              @if (editingCardIndex() === $index + 5) {
+                <mat-form-field appearance="fill" style="width: 60px; margin: 0;">
+                  <mat-select [value]="card.rank" (selectionChange)="setCardRank($index + 5, $event.value)" [disableOptionCentering]="true" autoActiveFirstOption>
+                    @for (r of allRanks; track r) {
+                      <mat-option [value]="r">{{ r === '13' ? '&' : r }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                }
+                @else {
+                <span class="rank">{{ card.rank === '13' ? '&' : card.rank }}</span>
+              }
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-hand">No cards dealt yet.</div>
+      }
+    </div>
+    @if (hand().length > 0) {
+      <div class="hand-score">
+        Score: {{ handScore() }}
+      </div>
+    }
+  </div>
+</main>
