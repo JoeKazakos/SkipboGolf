@@ -6,7 +6,7 @@ yarn-error.log
 # Build output
 dist/
 out-tsc/
-.angular/cache/
+**/.angular/
 *.tsbuildinfo
 
 # Test/coverage output
