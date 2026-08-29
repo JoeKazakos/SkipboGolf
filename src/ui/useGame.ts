@@ -227,8 +227,10 @@ export function useGame(options: UseGameOptions = {}) {
     const timer = setTimeout(() => {
       void (async () => {
         try {
+          // No budgetMs here: aiDelayMs is the pacing delay that makes the
+          // opponents watchable, not a thinking budget. Passing it would cap
+          // the search at a fraction of a second. The agent carries its own.
           const action = await agent.chooseAction(game, actor, {
-            budgetMs: aiDelayMs,
             signal: controller.signal,
           });
           if (cancelled) return;

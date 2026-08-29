@@ -30,7 +30,7 @@ let totalPlacements = 0;
 let waveChains = 0;
 let maxChain = 0;
 let guard = 0;
-const deadline = Date.now() + 240000;
+const deadline = Date.now() + Number(process.env.PLAY_TIMEOUT_MS ?? 240000);
 
 while (Date.now() < deadline) {
   guard++;
