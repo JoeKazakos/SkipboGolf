@@ -10,14 +10,25 @@ Delete an entry when it ships or when it is decided against.
 
 | Priority | Item |
 | -------- | ---- |
+| High | Undo the current turn |
 | High | Show what an opponent is holding |
 | Medium | Opponent seats stretch when there are few of them *(bug)* |
 | Medium | Rate the human player |
 | Medium | A stronger opponent above Sage |
+| Medium | An in-app rules reference |
+| Medium | Revisit the multi-round match |
+| Low | Survive a page refresh |
+| Low | Animate cards moving |
+| Low | Explain the final score |
 | Low | Tighten the error bars on the CPU ratings |
 | Low | Position setup and analysis mode |
 
 Keep this table in step with the Status lines below when priorities change.
+
+**No settings surface exists yet.** "Explain the final score" is to be
+toggleable, and "Animate cards moving" plausibly wants a toggle too. Whichever
+is built first should create one place for preferences rather than scattering
+switches into the top bar, which already carries the speed control.
 
 ---
 
@@ -372,3 +383,155 @@ own. Look at the screenshots too.
 Whether the human's own seat has the mirror-image problem at large widths - it
 is capped at `max-width: 402px`, so probably not, but confirm rather than
 assume.
+
+---
+
+## Undo the current turn
+
+**Status:** wanted, not started. **Priority: high.** Raised 2026-08-29.
+
+**What:** let the player take back the placements made this turn, up to the
+point the discard commits it.
+
+**Why:** a placement is permanent *and* locks the spot, so one misclick is
+unrecoverable. That is sharpest on a phone, where grid cards are around 47px
+and sit next to each other.
+
+### Approach
+
+The engine is immutable - `applyAction` returns a new state and never mutates -
+so undo is snapshot-and-restore, not an inverse operation. Keep the state as it
+was at the start of the turn, and restore it.
+
+Watch three things:
+
+- The reducer in `useGame` holds more than the game: `log`, `seq`, `hint` and
+  `nextLogId`. Restoring only `game` would leave log entries describing moves
+  that no longer happened. Snapshot what has to roll back together.
+- `seq` guards against duplicate dispatches. Rewinding it risks a stale
+  in-flight dispatch matching again; safer to keep `seq` monotonic and restore
+  only the game and the log.
+- Undo must be impossible once the turn has ended, and while an opponent is
+  thinking.
+
+### Open question
+
+Undo the whole turn in one step, or one placement at a time? A wave chain can
+be several placements, and stepping back through it is friendlier, but the
+turn-start snapshot is much simpler. Suggest starting with whole-turn.
+
+---
+
+## Survive a page refresh
+
+**Status:** wanted, not started. **Priority: low.** Raised 2026-08-29.
+
+**What:** reload the page mid-round and still be in the same game.
+
+**Why:** there is no persistence of any kind today, so a refresh, an
+accidental back gesture or a phone reclaiming the tab loses the round outright.
+
+### Notes
+
+- `GameState` is plain data - cards are `{ rank, id }`, `rngState` is a number -
+  so it serialises to JSON as-is. No custom encoder needed.
+- Persist the seating alongside it, or the restored game has opponents that do
+  not match the seats.
+- Version the stored blob. The shape has already changed once this project
+  (seat names became data), and restoring an old blob into new code should be
+  discarded rather than crash.
+- Distinct from "Rate the human player": that stores finished games, this
+  stores the one in progress.
+
+---
+
+## Animate cards moving
+
+**Status:** wanted, not started. **Priority: low.** Raised 2026-08-29.
+
+**What:** show cards travelling between the piles, the hand and the grid,
+rather than the board changing instantly.
+
+**Why:** a wave chain currently resolves in one frame, so the most interesting
+move in the game is the one you cannot see happen. Today the action log is the
+only record of it.
+
+### Notes
+
+- `Card.id` is stable across states, which is what a FLIP-style animation needs
+  to match a card before and after. It is already there for this.
+- The opponent pacing (`aiDelayMs`, and `ACT_PAUSE_RATIO` for placements) is
+  where an animation has to fit. At Fast speed there may not be room, so this
+  probably wants to degrade to no animation rather than slow the game down.
+- Respect `prefers-reduced-motion`; the stylesheet already has a block for it.
+
+---
+
+## Explain the final score
+
+**Status:** wanted, not started. **Priority: low.** Raised 2026-08-29.
+
+**What:** on the scorecard, show *why* a hand scored what it did - which
+columns cancelled as a matching pair, which cards counted zero for being a 7,
+11 or Skip-Bo, and which 2x2 squares took off ten.
+
+**Toggleable in settings**, off or on by preference.
+
+**Why:** the scoring rules are the least obvious part of the game, especially
+that squares are counted left to right and a column cannot be reused.
+
+### Do not reimplement the scoring
+
+`scoreGrid(grid)` in `engine/scoring.ts` returns a single number. The
+explanation must come from the same code path - either have it optionally
+return a breakdown, or build the breakdown and derive the total from it.
+Writing a second scoring routine for display would drift from the real one,
+and then the app would explain a score it did not award.
+
+---
+
+## An in-app rules reference
+
+**Status:** wanted, not started. **Priority: medium.** Raised 2026-08-29.
+
+**What:** somewhere in the app to look up how the game works, above all the
+wave rule.
+
+**Why:** the wave is the hard part of Skip-Bo Golf and there is nowhere in the
+app that explains it. `game-description.md` is the canonical reference but is
+not surfaced anywhere.
+
+### Notes
+
+- The full rules document is long and includes a clarifications section aimed
+  at implementers. A player wants a short version: the turn structure, the wave
+  rule with a worked example, and how scoring works.
+- Section 15.11 already states the turn structure precisely and reads well as
+  player-facing text.
+- Keep one source of truth. Either render from the markdown, or keep the short
+  version short enough that drift is obvious, and note in
+  `game-description.md` that it exists.
+
+---
+
+## Revisit the multi-round match
+
+**Status:** wanted, not started. **Priority: medium.** Raised 2026-08-29.
+
+**What:** a match of several rounds - golf's nine or eighteen holes - with a
+cumulative scorecard, rather than a single round deciding it.
+
+**Why:** this was considered before the game existed and "exactly as written,
+one round" was chosen. Now that it is playable, one round is very short for the
+setup it takes. Worth deciding again with the game in hand.
+
+### Notes
+
+- Section 13 of the rules says a full game is one round, so this is another
+  **[RULES CHANGE]** to record in section 15 if it is adopted, alongside 15.2,
+  15.8 and 15.12.
+- The engine needs nothing: a match is a wrapper that deals a fresh round and
+  accumulates `returns()` per player. Keep it out of the engine, which should
+  stay a single-round rules implementation.
+- Decide what carries between rounds. Nothing has to, but the seating should
+  obviously stay, and the dealer or start player might rotate.
