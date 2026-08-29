@@ -10,8 +10,8 @@ Delete an entry when it ships or when it is decided against.
 
 ## Rate the human player
 
-**Status:** wanted, not started. Raised 2026-08-29; deferred deliberately, not
-blocked on anything.
+**Status:** wanted, not started. **Priority: medium.** Raised 2026-08-29;
+deferred deliberately, not blocked on anything.
 
 **What:** track the player's own results across rounds and give them a rating on
 the same scale as the AI roster, so "am I getting better?" has an answer.
@@ -60,6 +60,44 @@ counts are lower than chess intuition suggests.
 - Show a **band** rather than a number until the error bar is tight enough to
   justify one, matching how the setup screen already leads with strength rather
   than Elo.
+
+### Named local profiles
+
+Several people share one browser, and they must not pollute each other's
+rating. Keep it as light as possible: **a name, and nothing else.** No
+passwords, no accounts.
+
+- Pick or create a profile on the setup screen; the chosen name becomes the
+  seat name for player 0. `names[0]` is already data rather than the constant
+  `'You'`, so the table needs no change to display it.
+- Each profile owns its own rating and its own game history.
+- Handle the dull cases: renaming, deleting, and two profiles given the same
+  name. A name is an identifier here, so either forbid duplicates or key on a
+  generated id and treat the name as a label. The second is less annoying.
+- Make the active profile visible on the table, so a game is never
+  accidentally recorded against the wrong person.
+
+### History screen
+
+A detailed view, separate from the game itself:
+
+- **Every past game**: date, who was at the table and how strong they were,
+  your score, where you finished, and your rating before and after with the
+  change.
+- **Rating over time**, as a line. Plot the uncertainty band alongside the
+  point estimate rather than the point alone - a rating that moved 40 points
+  while carrying a +/-90 error bar has not really moved, and a bare line would
+  imply it had.
+- Mark where a rating stopped being provisional.
+
+**Store raw results, not computed ratings.** Persist the finished games -
+opponents, scores, seats, date - and derive the whole rating curve by replaying
+the fit whenever it is displayed. Storing the rating after each game is simpler
+but goes stale: re-measuring the roster moves the anchors, and then the stored
+history disagrees with the current number and neither can be trusted.
+Recomputing from raw results keeps the curve coherent, and makes the anchors
+question below a non-issue for history even if it still matters for the
+headline rating.
 
 ### Open questions
 
