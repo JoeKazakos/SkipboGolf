@@ -6,8 +6,18 @@
 import { chromium } from 'playwright';
 
 const OUT = process.argv[2] || '.';
+const W = Number(process.env.PLAY_WIDTH ?? 1440);
+const H = Number(process.env.PLAY_HEIGHT ?? 950);
+const TOUCH = process.env.PLAY_TOUCH === '1';
+
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
+const context = await browser.newContext({
+  viewport: { width: W, height: H },
+  isMobile: TOUCH,
+  hasTouch: TOUCH,
+  deviceScaleFactor: TOUCH ? 2 : 1,
+});
+const page = await context.newPage();
 
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -15,6 +25,12 @@ page.on('pageerror', (e) => errors.push('PAGEERROR: ' + e.message));
 
 await page.goto('http://localhost:5173/', { waitUntil: 'networkidle' });
 await page.waitForTimeout(800);
+// The setup screen now precedes the table.
+const deal = page.getByRole('button', { name: /Deal the round/ });
+if (await deal.count()) {
+  await deal.click();
+  await page.waitForTimeout(900);
+}
 await page.getByRole('button', { name: 'Fast' }).click();
 
 const log = [];

@@ -53,7 +53,7 @@ export function GameOver({
               data-score={score}
             >
               <span className="scoreline__place">{place + 1}</span>
-              <span className="scoreline__name">{playerName(player)}</span>
+              <span className="scoreline__name">{playerName(player, names)}</span>
               <span className="scoreline__grid" aria-hidden="true">
                 {Array.from({ length: GRID_SIZE }, (_, i) => (
                   <CardFace key={i} rank={state.players[player].grid[i].card.rank} size="xs" />
