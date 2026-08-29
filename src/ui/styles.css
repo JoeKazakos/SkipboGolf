@@ -1336,6 +1336,7 @@ button.spot--legal:focus-visible .card {
   .speed__btn,
   .details__summary,
   .seat-row__pick select,
+  .count-btn,
   .preset {
     min-height: 44px;
   }

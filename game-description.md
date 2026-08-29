@@ -438,6 +438,25 @@ A turn is a sequence of placements ending in exactly one discard:
 3. Repeat step 2 as long as you wish and legal waves remain.
 4. Discard the held card. Your turn ends.
 
+### 15.12 The table may seat two to seven players **[RULES CHANGE]**
+
+Section 1 specifies six players, and six remains the default. The implementation also
+supports a table of one human plus one to six computer opponents, chosen before the round
+is dealt.
+
+Nothing else in the rules changes. Seating order, the draw sources, the wave rule, the
+end-of-round trigger, the final turn cycle and the scoring are all written in terms of
+"the players at the table" rather than a fixed six, and hold at any of these sizes. The
+162-card deck is ample: seven players use 70 cards for the grids, leaving 91 in the draw
+pile.
+
+Two consequences worth stating:
+
+- With two players there is exactly one other discard pile to draw from, so the draw
+  choice narrows considerably.
+- The opponent ratings in the app were measured in six-player games. They order the
+  opponents correctly but are not calibrated for other table sizes.
+
 ## 16. Source of Truth
 
 This document is the canonical how-to-play reference for Skip-Bo Golf. If any later document disagrees with this one, this file should be treated as the game rules to follow.
