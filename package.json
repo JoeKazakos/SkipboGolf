@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "arena": "vite-node src/ai/arena.ts"
+    "arena": "vite-node src/ai/arena.ts -- --arena"
   },
   "dependencies": {
     "react": "^18.3.1",
