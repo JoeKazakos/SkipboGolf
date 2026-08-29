@@ -13,10 +13,15 @@ export function ActionLog({
   entries: readonly LogEntry[];
   names?: SeatNames;
 }) {
-  const endRef = useRef<HTMLLIElement | null>(null);
+  const listRef = useRef<HTMLOListElement | null>(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView?.({ block: 'nearest' });
+    // Scroll the list itself rather than calling scrollIntoView, which walks
+    // every ancestor scroll container. On a narrow screen the sidebar sits
+    // below the table, so scrollIntoView dragged the whole page down and away
+    // from the game on every logged action.
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [entries.length]);
 
   const recent = entries.slice(-60);
@@ -24,11 +29,10 @@ export function ActionLog({
   return (
     <section className="panel panel--log" aria-label="Action log">
       <h2 className="panel__title">What just happened</h2>
-      <ol className="log" data-testid="action-log">
-        {recent.map((e, i) => (
+      <ol className="log" data-testid="action-log" ref={listRef}>
+        {recent.map((e) => (
           <li
             key={e.id}
-            ref={i === recent.length - 1 ? endRef : undefined}
             className={`log__row log__row--${e.kind} ${e.player === 0 ? 'log__row--mine' : ''}`}
           >
             {e.player >= 0 && <span className="log__who">{playerName(e.player, names)}</span>}

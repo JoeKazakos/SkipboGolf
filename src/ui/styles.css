@@ -306,12 +306,60 @@ body {
 
 .grid--sm {
   gap: 4px;
+  /* Fluid like the human grid, so a seat squeezed narrow by a two-up phone
+     layout shrinks its cards instead of overflowing them. The max-width on the
+     card keeps the design size everywhere there is room. */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+}
+
+.grid--sm .card--sm {
+  width: 100%;
+  max-width: 32px;
+  height: auto;
+  aspect-ratio: 32 / 45;
+}
+
+.grid--sm .spot {
+  min-width: 0;
 }
 
 .grid--lg {
   /* The coordinate label hangs below each spot, so row-gap must clear it. */
   column-gap: 8px;
   row-gap: 20px;
+  /* Five equal columns that shrink with the screen. Fixed-width cards used to
+     make this grid 402px wide at every size, which pushed column 5 off the
+     right edge of every phone. Capped at the original width so desktop is
+     unchanged. */
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
+  max-width: 402px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.grid--lg .spot {
+  width: 100%;
+  container-type: inline-size;
+}
+
+.grid--lg .card--lg {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 74 / 104;
+}
+
+/* Card typography follows the card, so a shrunken card stays readable and
+   correctly proportioned rather than keeping a desktop-sized numeral. */
+@supports (container-type: inline-size) {
+  .grid--lg .card--lg .card__pip {
+    font-size: 44cqw;
+  }
+  .grid--lg .card--lg .card__corner {
+    font-size: 14cqw;
+  }
 }
 
 .spot {
@@ -1273,4 +1321,138 @@ button.spot--legal:focus-visible .card {
   margin-top: 12px !important;
   font-size: 0.78rem;
   opacity: 0.9;
+}
+
+/* --------------------------------------------------------- touch ergonomics */
+/*
+ * On a touch screen every control needs to be comfortably tappable. Keyed off
+ * pointer type rather than width, because a large tablet is still touch and a
+ * narrow desktop window is still a mouse.
+ */
+@media (pointer: coarse) {
+  .btn,
+  .speed__btn,
+  .details__summary,
+  .seat-row__pick select,
+  .preset {
+    min-height: 44px;
+  }
+
+  .speed__btn {
+    padding: 10px 16px;
+    font-size: 0.82rem;
+  }
+
+  .seat-row__pick select {
+    padding: 10px 12px;
+    font-size: 0.95rem;
+  }
+
+  .details__summary {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Spacing between adjacent controls, so a near-miss does not hit the
+     neighbour instead. */
+  .topbar {
+    gap: 10px;
+  }
+}
+
+/* The speed toggle was cramped even for a mouse. */
+.speed__btn {
+  padding: 8px 14px;
+}
+
+/* ------------------------------------------------------ narrow-screen table */
+/*
+ * On a phone the scarce resource is vertical space, not width. The holding
+ * slot, the discard button and your discard pile stack into a tall column that
+ * pushes the grid off screen, so lay them out as a row instead and trim the
+ * padding that a phone cannot afford.
+ */
+@media (max-width: 700px) {
+  .app {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .table {
+    padding: 10px;
+    border-width: 5px;
+    gap: 10px;
+  }
+
+  .seat--human {
+    padding: 8px 10px 10px;
+  }
+
+  .human-body {
+    gap: 12px;
+  }
+
+  .human-side {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+  }
+
+  /* Keep the small captions on one line; wrapping "Your discard (0)" over
+     three lines made the row look broken. */
+  .human-side .mini-label {
+    white-space: nowrap;
+    font-size: 0.6rem;
+  }
+
+  .btn--discard {
+    padding: 8px 12px;
+  }
+
+  /* The log is a companion to the table, not the main event. */
+  .log {
+    max-height: 30vh;
+  }
+
+  /*
+   * Put what you act on at the top. On a desktop the whole table is visible at
+   * once and reading order barely matters, but on a phone the source markup
+   * order buries your own cards and the draw piles below five opponent seats,
+   * so every turn starts with a scroll. Opponents move below as reference -
+   * their discard piles are still reachable, just not in the way.
+   */
+  .centre {
+    order: 1;
+  }
+
+  .seat--human {
+    order: 2;
+  }
+
+  .opponents {
+    order: 3;
+  }
+
+  .topbar__title {
+    font-size: 1rem;
+  }
+
+  .turnbar {
+    padding: 5px 10px;
+    font-size: 0.9rem;
+  }
+}
+
+/* Very narrow phones: let the opponent seats sit two-up rather than one. */
+@media (max-width: 460px) {
+  .opponents {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 6px;
+  }
+
+  .seat {
+    padding: 6px 7px 8px;
+  }
 }
