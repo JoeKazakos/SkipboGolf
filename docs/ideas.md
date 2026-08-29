@@ -152,3 +152,67 @@ the existing error bars.
 
 Any new tier needs a fresh ladder run to rate it, so schedule this with the
 error-bar work rather than separately.
+
+---
+
+## Position setup and analysis mode
+
+**Status:** wanted, low priority. Raised 2026-08-29.
+
+**What:** a custom mode where you build a specific position - your grid, the
+centre card, what is showing on the discard piles - and ask the engine for its
+recommended move. Explaining the recommendation is wanted but explicitly
+optional.
+
+**Why:** the hint button only works in the flow of a live game. Being able to
+set up a position you got wrong, or a hypothetical, is how you actually learn a
+card game.
+
+### Most of this already exists
+
+- `useGame` takes an `initialState` option, added so tests could start from a
+  chosen position. That is exactly the seam this feature needs.
+- The hint path is already built end to end: `createHintAgent` runs ISMCTS in a
+  worker, and `describeSuggestion` in `format.ts` renders a chosen action as a
+  sentence. An analysis mode is largely the hint button pointed at a
+  hand-built position instead of a dealt one.
+- The retired Angular app had a rank picker per card, which is the shape of the
+  editor UI. It is in git history if it is worth a look: see
+  `skipbo-golf-app/skipbo-golf/src/app/app.ts` before commit eeb49e0.
+
+### The "why" is feasible, and cheaply
+
+`ismctsSearch` already returns `rootVisits`: `{ key, visits, mean }` for every
+root action, best first. That is the search's actual reasoning, so an
+explanation can be shown as data rather than invented prose - the top few
+candidate moves with their visit share and mean outcome, e.g. "wave the 7 into
+R2C3 (62% of visits, mean 3.1) versus discard (21%, mean 5.4)".
+
+Prefer that over generated commentary: it is honest about what the engine
+actually computed, and it costs no extra search.
+
+Two small pieces of plumbing needed:
+
+- `createIsmctsAgent` discards everything but `.action`, and the worker
+  protocol only passes the action back. Both need to carry `rootVisits`.
+- `rootVisits` is empty when only one action is legal, which the UI must handle
+  rather than render an empty table.
+
+### The actual work is validation, not analysis
+
+Building a **legal** `GameState` by hand is the hard part. The engine holds real
+invariants: exactly 162 cards, ten per grid, and `determinize` throws
+`determinization ran out of unseen cards` the moment the unseen multiset does
+not add up. A position editor must therefore validate as you build - track the
+remaining census of each rank, refuse a thirteenth 12, and refuse to run the
+search until the position is consistent. Budget the effort there.
+
+### Open questions
+
+- How much needs specifying? Your own grid and the centre card are the
+  minimum. Opponent grids and discard piles affect the search, but demanding
+  all of them would make setup tedious. Sensible default: fill anything
+  unspecified by random deal from the remaining cards.
+- Is this a separate screen, or a "set up a position" button on the setup
+  screen?
+- Worth allowing a position to be saved or shared as a string?
