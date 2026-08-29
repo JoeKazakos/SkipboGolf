@@ -17,6 +17,12 @@ This file provides project context and working rules for Claude-based agents.
 - If implementation conflicts with game-description.md, align implementation to the rules unless explicitly told to change rules.
 - Do not silently change gameplay rules. Propose rule updates explicitly and request confirmation first.
 
+## Backlog
+
+- docs/ideas.md holds deferred ideas, each with the context needed to pick it up
+  cold. Check it before proposing new work, and add to it rather than dropping
+  an idea that is not being built now.
+
 ## Development Commands
 
 Run commands from the repo root:
