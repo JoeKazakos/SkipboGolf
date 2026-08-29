@@ -58,6 +58,17 @@ export interface OpponentProfile {
 /**
  * The opponents you can seat, weakest first.
  *
+ * Ratings measured 2026-08-29 by `ARENA_ROSTER=1 ARENA_GAMES=120 npm run arena`
+ * (120 games, ~103 per agent, 73 minutes). Re-run it after changing any tier.
+ *
+ * Read the error bars before trusting a gap. The ladder is monotonic in all
+ * three measures - Elo, mean score and win rate - but the four searching tiers
+ * sit within about 90 Elo of each other with error bars of roughly 30, so
+ * Rook and Ada in particular are NOT statistically distinguishable. Extra
+ * search budget shows sharply diminishing returns: 40ms to 2000ms, a fiftyfold
+ * increase, buys under 90 Elo. The gaps that are unambiguous are the ones
+ * below Nel.
+ *
  * The tiers use genuinely different methods rather than one engine throttled
  * down, so a weak opponent plays *simply* instead of erratically: it misses
  * good plays rather than making bizarre ones.
@@ -68,8 +79,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Pip',
     blurb: 'Plays at random. Knows the rules and nothing else.',
     kind: 'random',
-    elo: null,
-    eloError: null,
+    elo: 971,
+    eloError: 48,
   },
   {
     id: 'dot',
@@ -77,16 +88,16 @@ export const ROSTER: readonly OpponentProfile[] = [
     blurb: 'Has the right instincts but is easily distracted.',
     kind: 'blundering-heuristic',
     epsilon: 0.4,
-    elo: null,
-    eloError: null,
+    elo: 1274,
+    eloError: 38,
   },
   {
     id: 'nel',
     name: 'Nel',
     blurb: 'Always takes the best move she can see, but never looks ahead.',
     kind: 'heuristic',
-    elo: null,
-    eloError: null,
+    elo: 1552,
+    eloError: 43,
   },
   {
     id: 'vin',
@@ -94,8 +105,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     blurb: 'Thinks ahead a little, and counts the cards already shown.',
     kind: 'ismcts',
     budgetMs: 40,
-    elo: null,
-    eloError: null,
+    elo: 1640,
+    eloError: 29,
   },
   {
     id: 'ada',
@@ -103,8 +114,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     blurb: 'Searches properly. A serious opponent.',
     kind: 'ismcts',
     budgetMs: 150,
-    elo: null,
-    eloError: null,
+    elo: 1665,
+    eloError: 26,
   },
   {
     id: 'rook',
@@ -112,8 +123,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     blurb: 'Takes her time and rarely wastes a turn.',
     kind: 'ismcts',
     budgetMs: 600,
-    elo: null,
-    eloError: null,
+    elo: 1669,
+    eloError: 30,
   },
   {
     id: 'sage',
@@ -121,8 +132,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     blurb: 'Thinks hard about every card. Expect to lose.',
     kind: 'ismcts',
     budgetMs: 2000,
-    elo: null,
-    eloError: null,
+    elo: 1729,
+    eloError: 29,
   },
 ];
 

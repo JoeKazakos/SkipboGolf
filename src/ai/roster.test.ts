@@ -38,6 +38,14 @@ describe('roster', () => {
     }
   });
 
+  it('is listed weakest-first, matching the measured ratings', () => {
+    // The roster order is what the setup screen presents as a difficulty
+    // ladder, so it must not drift away from what self-play actually measured.
+    const rated = ROSTER.filter((p) => p.elo != null).map((p) => p.elo as number);
+    const sorted = [...rated].sort((a, b) => a - b);
+    expect(rated).toEqual(sorted);
+  });
+
   it('builds a working agent for every profile', async () => {
     const state = createInitialState(20260829);
     for (const profile of ROSTER) {
