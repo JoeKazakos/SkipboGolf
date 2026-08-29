@@ -49,6 +49,21 @@ export interface OpponentProfile {
    */
   readonly elo: number | null;
   readonly eloError: number | null;
+  /**
+   * Coarse strength shown to the player, 1 (weakest) to 5 (strongest).
+   *
+   * Deliberately coarser than the Elo, because the measurement says the four
+   * searching tiers are barely separable: Vin and Ada share a band, and so do
+   * Rook and Sage. Showing five distinct steps here would imply a precision
+   * the ladder does not support.
+   */
+  readonly strength: 1 | 2 | 3 | 4 | 5;
+  /** One-word label for that strength, for players who prefer words to pips. */
+  readonly tier: string;
+  /** Mean round score from the ladder; lower is better. */
+  readonly meanScore: number | null;
+  /** Share of ladder games won. */
+  readonly winRate: number | null;
   /** Per-decision search budget, for the ISMCTS tiers only. */
   readonly budgetMs?: number;
   /** Blunder probability, for the blundering tier only. */
@@ -79,6 +94,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Pip',
     blurb: 'Plays at random. Knows the rules and nothing else.',
     kind: 'random',
+    strength: 1,
+    tier: 'Beginner',
+    meanScore: 41.03,
+    winRate: 0.0,
     elo: 971,
     eloError: 48,
   },
@@ -87,6 +106,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Dot',
     blurb: 'Has the right instincts but is easily distracted.',
     kind: 'blundering-heuristic',
+    strength: 2,
+    tier: 'Casual',
+    meanScore: 22.43,
+    winRate: 0.019,
     epsilon: 0.4,
     elo: 1274,
     eloError: 38,
@@ -96,6 +119,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Nel',
     blurb: 'Always takes the best move she can see, but never looks ahead.',
     kind: 'heuristic',
+    strength: 3,
+    tier: 'Steady',
+    meanScore: 8.62,
+    winRate: 0.138,
     elo: 1552,
     eloError: 43,
   },
@@ -104,6 +131,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Vin',
     blurb: 'Thinks ahead a little, and counts the cards already shown.',
     kind: 'ismcts',
+    strength: 4,
+    tier: 'Strong',
+    meanScore: 4.41,
+    winRate: 0.183,
     budgetMs: 40,
     elo: 1640,
     eloError: 29,
@@ -113,6 +144,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Ada',
     blurb: 'Searches properly. A serious opponent.',
     kind: 'ismcts',
+    strength: 4,
+    tier: 'Strong',
+    meanScore: 3.17,
+    winRate: 0.207,
     budgetMs: 150,
     elo: 1665,
     eloError: 26,
@@ -122,6 +157,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Rook',
     blurb: 'Takes her time and rarely wastes a turn.',
     kind: 'ismcts',
+    strength: 5,
+    tier: 'Expert',
+    meanScore: 2.06,
+    winRate: 0.252,
     budgetMs: 600,
     elo: 1669,
     eloError: 30,
@@ -131,6 +170,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Sage',
     blurb: 'Thinks hard about every card. Expect to lose.',
     kind: 'ismcts',
+    strength: 5,
+    tier: 'Expert',
+    meanScore: 1.24,
+    winRate: 0.369,
     budgetMs: 2000,
     elo: 1729,
     eloError: 29,

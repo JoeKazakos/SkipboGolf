@@ -8,14 +8,78 @@ import {
   type OpponentProfile,
 } from '../ai/roster';
 
-/** Renders a profile's rating, or an honest placeholder when it has none. */
-function EloTag({ profile }: { profile: OpponentProfile }) {
-  if (profile.elo == null) return <span className="elo elo--unrated">unrated</span>;
+/**
+ * Strength as five pips plus a word.
+ *
+ * This is what the setup screen shows: an ordering is what a player actually
+ * needs, and the exact ratings live in the details panel for anyone who wants
+ * them.
+ */
+function StrengthMeter({ profile }: { profile: OpponentProfile }) {
   return (
-    <span className="elo">
-      {profile.elo}
-      {profile.eloError != null && <span className="elo__err"> ±{profile.eloError}</span>}
+    <span
+      className="strength"
+      title={`${profile.tier} — strength ${profile.strength} of 5`}
+      aria-label={`${profile.tier}, strength ${profile.strength} of 5`}
+    >
+      <span className="strength__pips" aria-hidden="true">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <span key={n} className={`pip ${n <= profile.strength ? 'pip--on' : ''}`} />
+        ))}
+      </span>
+      <span className="strength__tier">{profile.tier}</span>
     </span>
+  );
+}
+
+/** The measured ladder, tucked behind a disclosure for anyone who wants it. */
+function RatingDetails() {
+  return (
+    <details className="details">
+      <summary className="details__summary">How these opponents were rated</summary>
+      <div className="details__body">
+        <p>
+          Every opponent played a self-play ladder against the others (120 games, about 103
+          each) and the finishing order was fitted to an Elo scale. Lower mean score is
+          better. These ratings are only comparable to each other, not to a human rating.
+        </p>
+        <table className="ladder">
+          <thead>
+            <tr>
+              <th scope="col">Opponent</th>
+              <th scope="col">Elo</th>
+              <th scope="col">Mean score</th>
+              <th scope="col">Win rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[...ROSTER].reverse().map((p) => (
+              <tr key={p.id}>
+                <th scope="row">{p.name}</th>
+                <td>
+                  {p.elo == null ? (
+                    'unrated'
+                  ) : (
+                    <>
+                      {p.elo}
+                      {p.eloError != null && <span className="ladder__err"> ±{p.eloError}</span>}
+                    </>
+                  )}
+                </td>
+                <td>{p.meanScore == null ? '—' : p.meanScore.toFixed(2)}</td>
+                <td>{p.winRate == null ? '—' : `${Math.round(p.winRate * 100)}%`}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="details__caveat">
+          Read the error bars before trusting a gap. The four searching opponents sit within
+          about 90 Elo of each other with error bars near 30, so Rook and Ada are not really
+          distinguishable — they share a strength band here for that reason. The clear steps
+          are the ones below Nel.
+        </p>
+      </div>
+    </details>
   );
 }
 
@@ -90,14 +154,13 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
                   >
                     {ROSTER.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name}
-                        {p.elo == null ? '' : ` (${p.elo})`}
+                        {p.name} — {p.tier}
                       </option>
                     ))}
                   </select>
                 </label>
                 <span className="seat-row__blurb">{profile.blurb}</span>
-                <EloTag profile={profile} />
+                <StrengthMeter profile={profile} />
               </li>
             );
           })}
@@ -108,11 +171,7 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
         Deal the round
       </button>
 
-      <p className="setup__note">
-        Ratings come from self-play: every opponent plays a ladder against the others and the
-        results are fitted to an Elo scale. They are only comparable to each other, not to a
-        human rating.
-      </p>
+      <RatingDetails />
     </div>
   );
 }
