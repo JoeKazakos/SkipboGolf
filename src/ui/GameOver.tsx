@@ -2,13 +2,21 @@ import { GRID_SIZE } from '../engine/cards';
 import { returns } from '../engine/state';
 import type { GameState } from '../engine/types';
 import { CardFace } from './CardFace';
-import { HUMAN, playerName } from './format';
+import { HUMAN, playerName, type SeatNames } from './format';
 
 /**
  * The end-of-round scorecard. Every hand is face up at this point (section 15.6)
  * so all ten cards of every player are shown.
  */
-export function GameOver({ state, onNewGame }: { state: GameState; onNewGame: () => void }) {
+export function GameOver({
+  state,
+  names,
+  onNewGame,
+}: {
+  state: GameState;
+  names: SeatNames;
+  onNewGame: () => void;
+}) {
   const scores = returns(state);
   const best = Math.min(...scores);
   const winners = scores.map((s, i) => (s === best ? i : -1)).filter((i) => i >= 0);
@@ -20,8 +28,8 @@ export function GameOver({ state, onNewGame }: { state: GameState; onNewGame: ()
 
   const winnerText =
     winners.length === 1
-      ? `${playerName(winners[0])} ${winners[0] === HUMAN ? 'win' : 'wins'} with ${best}.`
-      : `${winners.map(playerName).join(' and ')} tie for the lowest score, ${best}.`;
+      ? `${playerName(winners[0], names)} ${winners[0] === HUMAN ? 'win' : 'wins'} with ${best}.`
+      : `${winners.map((w) => playerName(w, names)).join(' and ')} tie for the lowest score, ${best}.`;
 
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-label="Round over">

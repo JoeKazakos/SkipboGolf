@@ -2,10 +2,16 @@ import { GRID_SIZE } from '../engine/cards';
 import type { Card } from '../engine/cards';
 import { CardFace, CardSlotEmpty } from './CardFace';
 import { DiscardFan } from './HumanArea';
-import { playerName, spotName, visibleRanks, type ObservedGrid } from './format';
+import { spotName, visibleRanks, type ObservedGrid } from './format';
 
 interface Props {
   player: number;
+  /** Display name of the opponent seated here, chosen from the roster. */
+  name: string;
+  /** One-line description of how this opponent plays. */
+  blurb?: string;
+  /** Measured Elo, when the ladder has rated this profile. */
+  elo?: number | null;
   grid: ObservedGrid;
   discardTop3: readonly Card[];
   discardCount: number;
@@ -20,6 +26,9 @@ interface Props {
 
 export function OpponentSeat({
   player,
+  name,
+  blurb,
+  elo,
   grid,
   discardTop3,
   discardCount,
@@ -37,11 +46,16 @@ export function OpponentSeat({
   return (
     <section
       className={`seat seat--opponent ${isCurrent ? 'seat--active' : ''}`}
-      aria-label={`${playerName(player)}'s play area`}
+      aria-label={`${name}'s play area`}
     >
       <header className="seat__head">
         <h3 className="seat__name">
-          {playerName(player)}
+          {name}
+          {elo != null && (
+            <span className="badge badge--elo" title={blurb ?? 'Measured self-play rating'}>
+              {elo}
+            </span>
+          )}
           {triggered && (
             <span className="badge badge--trigger" title="Triggered the end of the round">
               closed
@@ -53,7 +67,7 @@ export function OpponentSeat({
         </span>
       </header>
 
-      <div className="grid grid--sm" role="group" aria-label={`${playerName(player)}'s ten cards`}>
+      <div className="grid grid--sm" role="group" aria-label={`${name}'s ten cards`}>
         {Array.from({ length: GRID_SIZE }, (_, i) => (
           <div key={i} className="spot spot--static" role="img" aria-label={spotName(i)}>
             <CardFace rank={ranks[i]} size="sm" />
@@ -67,7 +81,7 @@ export function OpponentSeat({
             type="button"
             className={`pile-btn ${hinted ? 'pile-btn--hint' : ''}`}
             onClick={() => onDraw(player)}
-            aria-label={`Draw the ${top.rank === 13 ? 'Skip-Bo' : top.rank} from ${playerName(player)}'s discard pile`}
+            aria-label={`Draw the ${top.rank === 13 ? 'Skip-Bo' : top.rank} from ${name}'s discard pile`}
           >
             <DiscardFan cards={discardTop3} />
             <span className="pile-btn__cta">take</span>
