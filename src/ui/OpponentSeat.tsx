@@ -10,8 +10,8 @@ interface Props {
   name: string;
   /** One-line description of how this opponent plays. */
   blurb?: string;
-  /** Measured Elo, when the ladder has rated this profile. */
-  elo?: number | null;
+  /** One-word strength label, e.g. "Steady". Exact ratings live in setup. */
+  tier?: string;
   grid: ObservedGrid;
   discardTop3: readonly Card[];
   discardCount: number;
@@ -28,7 +28,7 @@ export function OpponentSeat({
   player,
   name,
   blurb,
-  elo,
+  tier,
   grid,
   discardTop3,
   discardCount,
@@ -51,9 +51,9 @@ export function OpponentSeat({
       <header className="seat__head">
         <h3 className="seat__name">
           {name}
-          {elo != null && (
-            <span className="badge badge--elo" title={blurb ?? 'Measured self-play rating'}>
-              {elo}
+          {tier && (
+            <span className="badge badge--tier" title={blurb}>
+              {tier}
             </span>
           )}
           {triggered && (

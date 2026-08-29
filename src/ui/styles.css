@@ -366,9 +366,11 @@ button.spot--legal:focus-visible .card {
   filter: saturate(0.6);
 }
 
+/* A locked spot must still be readable: you need to see what you played
+   there. Signal it with desaturation and a border, not by hiding the rank. */
 .spot--locked .card {
-  opacity: 0.4;
-  filter: grayscale(1);
+  opacity: 0.92;
+  filter: saturate(0.35);
 }
 
 .spot--locked::after {
@@ -378,18 +380,20 @@ button.spot--legal:focus-visible .card {
   border-radius: 6px;
   background: repeating-linear-gradient(
     45deg,
-    rgba(0, 0, 0, 0.32) 0 5px,
+    rgba(0, 0, 0, 0.09) 0 5px,
     rgba(0, 0, 0, 0) 5px 10px
   );
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.28);
   pointer-events: none;
 }
 
 .spot__lock {
+  /* Bottom edge, not the centre: the rank sits in the middle of the card. */
   position: absolute;
-  top: 50%;
+  bottom: 5px;
   left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 0.58rem;
+  transform: translateX(-50%);
+  font-size: 0.52rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   background: rgba(0, 0, 0, 0.72);
@@ -1166,4 +1170,107 @@ button.spot--legal:focus-visible .card {
   .seat-row__blurb {
     grid-column: 1 / -1;
   }
+}
+
+/* ------------------------------------------------------- strength + details */
+.strength {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.strength__pips {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.pip {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+}
+
+.pip--on {
+  background: var(--felt);
+  border-color: var(--felt);
+}
+
+.strength__tier {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  min-width: 62px;
+}
+
+.badge--tier {
+  margin-left: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--felt-ink-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.58rem;
+}
+
+.details {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.details__summary {
+  cursor: pointer;
+  padding: 11px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.details__body {
+  padding: 0 14px 14px;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.details__body p {
+  margin: 0 0 12px;
+}
+
+.ladder {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.ladder th,
+.ladder td {
+  text-align: right;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ladder th[scope='row'],
+.ladder thead th:first-child {
+  text-align: left;
+}
+
+.ladder thead th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.ladder__err {
+  opacity: 0.65;
+  font-weight: 400;
+}
+
+.details__caveat {
+  margin-top: 12px !important;
+  font-size: 0.78rem;
+  opacity: 0.9;
 }

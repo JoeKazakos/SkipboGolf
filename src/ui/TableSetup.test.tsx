@@ -48,6 +48,36 @@ describe('TableSetup', () => {
     }
   });
 
+  it('shows a strength word for each seat, not a raw rating', () => {
+    render(<TableSetup onStart={vi.fn()} />);
+    const seats = screen.getAllByRole('listitem');
+    expect(seats).toHaveLength(5);
+    for (const seat of seats) {
+      const profileId = (within(seat).getByRole('combobox') as HTMLSelectElement).value;
+      const profile = ROSTER.find((p) => p.id === profileId)!;
+      // The tier word appears in the row...
+      expect(within(seat).getAllByText(profile.tier).length).toBeGreaterThan(0);
+      // ...and the Elo number does not.
+      if (profile.elo != null) {
+        expect(within(seat).queryByText(String(profile.elo))).toBeNull();
+      }
+    }
+  });
+
+  it('keeps the exact ratings available in the details panel', () => {
+    render(<TableSetup onStart={vi.fn()} />);
+    const rows = within(screen.getByRole('table')).getAllByRole('row');
+    for (const profile of ROSTER) {
+      const row = rows.find(
+        (r) => within(r).queryByRole('rowheader')?.textContent === profile.name,
+      );
+      expect(row, `no ladder row for ${profile.name}`).toBeTruthy();
+      if (profile.elo != null) {
+        expect(within(row!).getByText(String(profile.elo))).toBeTruthy();
+      }
+    }
+  });
+
   it('says "unrated" rather than inventing a number for an unmeasured profile', () => {
     render(<TableSetup onStart={vi.fn()} />);
     const unrated = ROSTER.filter((p) => p.elo == null).length;
