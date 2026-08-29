@@ -261,40 +261,45 @@ search until the position is consistent. Budget the effort there.
 
 **Status:** wanted, not started. Raised 2026-08-29.
 
-**What:** when a computer player has drawn a card but not yet placed or
-discarded it, show that card in an "in hand" slot on their seat, the way the
-human's own holding slot works.
+**What:** when a computer player picks up a card that everyone saw them take -
+from another player's discard pile, or the centre card - show it face up in an
+"in hand" slot on their seat, the way the human's own HOLDING slot works, until
+they place or discard it.
 
-**Why:** it makes the opponents legible. You can watch them pick something up
-and follow what they do with it, instead of seeing the board change all at
-once.
+**Why:** it makes the opponents legible. You can watch someone take the 9 off
+your discard pile and follow what they do with it, instead of the board just
+changing.
 
-### Watch the hidden-information rule
+### This is public information
 
-This is the whole difficulty, and it must not be got wrong.
+The card came off a visible pile, so everyone at a real table would have seen
+it. Showing it face up leaks nothing.
 
-A held card is only public when the draw made it public. `knownCards` in
-`state.ts` already encodes exactly this: it includes `s.held` **only** when
-`s.current === viewer`. A card taken from the centre or from a visible discard
-top was seen by everyone and may be shown face up. A card drawn blind from the
-pile was seen by nobody and must be rendered face **down**.
+The only case needing a decision is the other one: a card drawn blind from the
+face-down pile was seen by nobody and must not be shown. Either render a
+face-down card back in the slot, or leave the slot empty. A face-down back is
+probably better - it still tells you they are mid-turn and holding something,
+which is the point.
 
-`describeAction` in `format.ts` already draws precisely this distinction for
-the action log - it names the rank for a centre or discard draw and stays
-silent for a pile draw - so the same rule is already written down and can be
-reused rather than re-derived.
+### The one piece of engine work
 
-Getting this wrong would leak hidden information to the human and quietly
-break the game, so any implementation wants a test in the shape of the
-existing "no rank rendered for any face-down card" test.
+`GameState` tracks `held` but not where it came from. Its fields are players,
+drawPile, centerCard, current, held, phase, locked, placements, triggerPlayer,
+finalTurnsRemaining, terminal, rngState and turnCount - nothing records the
+draw source. So the engine needs a small addition set at draw time, e.g.
+`heldIsPublic: boolean`, true for a centre or discard draw and false for a pile
+draw.
+
+`describeAction` in `format.ts` already makes exactly this distinction for the
+action log, so the rule is written down and can be mirrored rather than
+re-derived.
+
+`Observation` also carries a single `held` for the viewer only, so it needs a
+per-player notion of "is holding, and here is the card if it was public".
 
 ### Notes
 
-- `Observation` currently carries a single `held` field for the observer. It
-  will need a per-player notion of "is holding, and here is the card if you are
-  entitled to see it".
-- The seat is already tight at phone sizes with two seats per row, so an extra
-  slot needs a compact treatment - possibly just a small card badge beside the
-  name rather than a full holding box.
-- The opponent pause is short at Fast speed, so the held card may flash by. It
-  may only be genuinely useful at Normal or Slow.
+- Seats are tight at phone sizes with two per row, so this may want a compact
+  treatment - a small card badge beside the name rather than a full slot.
+- At Fast speed the pause is short and the card will flash by, so this is
+  mostly useful at Normal or Slow.
