@@ -303,3 +303,56 @@ per-player notion of "is holding, and here is the card if it was public".
   treatment - a small card badge beside the name rather than a full slot.
 - At Fast speed the pause is short and the card will flash by, so this is
   mostly useful at Normal or Slow.
+
+---
+
+## Opponent seats stretch when there are few of them
+
+**Status:** bug, not started. **Priority: medium.** Raised 2026-08-29.
+
+**What:** with one opponent, that seat spans the whole table and its five cards
+are spread across roughly a thousand pixels with large gaps between them, the
+discard placeholder stranded in the middle. It reads as broken rather than
+sparse. Two opponents show a milder version of the same thing.
+
+There is no need to fill the width just because it is there. Either enlarge the
+cards or leave the space empty; both are fine.
+
+### Cause, already traced
+
+A regression from combining two earlier changes, not a new fault:
+
+1. The responsive work made `.grid--sm` fluid - `repeat(5, minmax(0, 1fr))`
+   with `.grid--sm .card--sm { max-width: 32px }` - so a card row shrinks with
+   its seat instead of overflowing it on a phone.
+2. The variable-player-count work made `.opponents` use
+   `repeat(var(--seat-count), minmax(0, 1fr))`, so with one seat that column
+   takes the full table width.
+
+Together: each of the five card columns becomes about 200px wide, while the
+card inside is capped at 32px, so each card sits at the left edge of a very
+wide column. The cap that protects phones is what strands the cards on
+desktop.
+
+### Suggested fix
+
+Cap how wide a seat may get, rather than removing the card cap:
+
+- `.opponents { grid-template-columns: repeat(var(--seat-count), minmax(0, 230px)); justify-content: center; }`
+  so seats keep a sensible size at any count and centre as a group.
+- Optionally also let the card row pack rather than spread, with
+  `.grid--sm { justify-items: center }` or `max-content` columns, which guards
+  against the same thing recurring if a seat is ever wide for another reason.
+
+Keep the phone behaviour intact: the `max-width: 900px` and `max-width: 460px`
+rules deliberately switch `.opponents` to `auto-fit`, and that is what makes
+seats sit two-up on a phone. Re-check both after changing this - the
+responsive audit covers it (`node scripts/responsive-audit.mjs <dir>`), but it
+measures overflow, not gaps, so it will not catch this class of problem on its
+own. Look at the screenshots too.
+
+### Worth checking at the same time
+
+Whether the human's own seat has the mirror-image problem at large widths - it
+is capped at `max-width: 402px`, so probably not, but confirm rather than
+assume.
