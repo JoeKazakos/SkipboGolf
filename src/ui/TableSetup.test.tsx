@@ -1,21 +1,21 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { PRESETS, ROSTER, presetById } from '../ai/roster';
+import { DEFAULT_OPPONENTS, PRESETS, ROSTER, presetSeats } from '../ai/roster';
 import { TableSetup } from './TableSetup';
 
 describe('TableSetup', () => {
-  it('starts on the default preset and deals those five seats', async () => {
+  it('starts on the default preset and deals those seats', async () => {
     const onStart = vi.fn();
     render(<TableSetup onStart={onStart} />);
 
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
     expect(onStart).toHaveBeenCalledTimes(1);
-    expect(onStart.mock.calls[0][0]).toEqual([...presetById('club').seats]);
+    expect(onStart.mock.calls[0][0]).toEqual(presetSeats('club', DEFAULT_OPPONENTS));
   });
 
-  it('applies a preset to all five seats', async () => {
+  it('applies a preset to every seat', async () => {
     const onStart = vi.fn();
     render(<TableSetup onStart={onStart} />);
 
@@ -23,7 +23,7 @@ describe('TableSetup', () => {
     await userEvent.click(screen.getByRole('button', { name: new RegExp(tough.name) }));
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
-    expect(onStart.mock.calls[0][0]).toEqual([...tough.seats]);
+    expect(onStart.mock.calls[0][0]).toEqual(presetSeats(tough.id, DEFAULT_OPPONENTS));
   });
 
   it('lets one seat be overridden without disturbing the others', async () => {
@@ -33,10 +33,45 @@ describe('TableSetup', () => {
     await userEvent.selectOptions(screen.getByLabelText('Opponent in seat 3'), 'sage');
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
-    const base = [...presetById('club').seats];
-    const expected = [...base];
+    const expected = presetSeats('club', DEFAULT_OPPONENTS);
     expected[2] = 'sage';
     expect(onStart.mock.calls[0][0]).toEqual(expected);
+  });
+
+  it('deals the chosen number of opponents', async () => {
+    for (const n of [1, 3, 6]) {
+      const onStart = vi.fn();
+      const { unmount } = render(<TableSetup onStart={onStart} />);
+      await userEvent.click(screen.getByRole('button', { name: String(n) }));
+      await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
+      expect(onStart.mock.calls[0][0]).toHaveLength(n);
+      unmount();
+    }
+  });
+
+  it('keeps seats already chosen when the table grows', async () => {
+    const onStart = vi.fn();
+    render(<TableSetup onStart={onStart} />);
+
+    await userEvent.selectOptions(screen.getByLabelText('Opponent in seat 1'), 'sage');
+    await userEvent.click(screen.getByRole('button', { name: '6' }));
+    await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
+
+    const seats = onStart.mock.calls[0][0];
+    expect(seats).toHaveLength(6);
+    // Growing the table must not discard the override already made.
+    expect(seats[0]).toBe('sage');
+  });
+
+  it('shrinking the table drops seats from the end only', async () => {
+    const onStart = vi.fn();
+    render(<TableSetup onStart={onStart} />);
+
+    const before = presetSeats('club', DEFAULT_OPPONENTS);
+    await userEvent.click(screen.getByRole('button', { name: '2' }));
+    await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
+
+    expect(onStart.mock.calls[0][0]).toEqual(before.slice(0, 2));
   });
 
   it('offers every roster profile in each seat', () => {

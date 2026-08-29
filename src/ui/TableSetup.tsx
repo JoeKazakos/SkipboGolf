@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import {
+  DEFAULT_OPPONENTS,
   DEFAULT_PRESET_ID,
+  MAX_OPPONENTS,
+  MIN_OPPONENTS,
   PRESETS,
   ROSTER,
-  presetById,
+  presetSeats,
   profileById,
   type OpponentProfile,
 } from '../ai/roster';
@@ -91,13 +94,26 @@ export interface TableSetupProps {
 
 export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
   const [seats, setSeats] = useState<string[]>(() =>
-    initialSeats ? [...initialSeats] : [...presetById(DEFAULT_PRESET_ID).seats],
+    initialSeats ? [...initialSeats] : presetSeats(DEFAULT_PRESET_ID, DEFAULT_OPPONENTS),
   );
   const [presetId, setPresetId] = useState<string | null>(DEFAULT_PRESET_ID);
 
   const applyPreset = (id: string) => {
     setPresetId(id);
-    setSeats([...presetById(id).seats]);
+    setSeats(presetSeats(id, seats.length));
+  };
+
+  /**
+   * Changing the table size keeps the seats you already chose and only adds or
+   * removes from the end, so setting a count after picking opponents does not
+   * throw that choice away.
+   */
+  const setCount = (count: number) => {
+    setSeats((prev) => {
+      if (count <= prev.length) return prev.slice(0, count);
+      const filler = presetSeats(presetId ?? DEFAULT_PRESET_ID, count);
+      return [...prev, ...filler.slice(prev.length, count)];
+    });
   };
 
   const setSeat = (index: number, profileId: string) => {
@@ -115,6 +131,30 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
         <h1 className="setup__title">Skip-Bo Golf</h1>
         <p className="setup__sub">Choose who you are playing against.</p>
       </header>
+
+      <section className="setup__section" aria-labelledby="count-heading">
+        <h2 className="setup__heading" id="count-heading">
+          How many opponents
+        </h2>
+        <div className="count-row" role="group" aria-label="Number of opponents">
+          {Array.from({ length: MAX_OPPONENTS - MIN_OPPONENTS + 1 }, (_, i) => i + MIN_OPPONENTS).map(
+            (n) => (
+              <button
+                key={n}
+                type="button"
+                className={`count-btn ${seats.length === n ? 'count-btn--on' : ''}`}
+                aria-pressed={seats.length === n}
+                onClick={() => setCount(n)}
+              >
+                {n}
+              </button>
+            ),
+          )}
+          <span className="count-note">
+            {seats.length + 1} players at the table, including you
+          </span>
+        </div>
+      </section>
 
       <section className="setup__section" aria-labelledby="preset-heading">
         <h2 className="setup__heading" id="preset-heading">

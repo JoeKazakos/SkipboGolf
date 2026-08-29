@@ -6,8 +6,11 @@ import {
   createBlunderingAgent,
   DEFAULT_PRESET_ID,
   DEFAULT_PROFILE_ID,
+  MAX_OPPONENTS,
+  MIN_OPPONENTS,
   PRESETS,
   presetById,
+  presetSeats,
   profileById,
   ROSTER,
 } from './roster';
@@ -58,12 +61,29 @@ describe('roster', () => {
 });
 
 describe('presets', () => {
-  it('seat exactly five opponents drawn from the roster', () => {
+  it('list a full-size table drawn from the roster', () => {
     const ids = new Set(ROSTER.map((p) => p.id));
     for (const preset of PRESETS) {
-      expect(preset.seats).toHaveLength(5);
+      // Presets list the largest table; smaller ones take the first N.
+      expect(preset.seats).toHaveLength(MAX_OPPONENTS);
       for (const seat of preset.seats) expect(ids.has(seat)).toBe(true);
     }
+  });
+
+  it('scale to any supported opponent count', () => {
+    const ids = new Set(ROSTER.map((p) => p.id));
+    for (const preset of PRESETS) {
+      for (let n = MIN_OPPONENTS; n <= MAX_OPPONENTS; n++) {
+        const seats = presetSeats(preset.id, n);
+        expect(seats).toHaveLength(n);
+        for (const seat of seats) expect(ids.has(seat)).toBe(true);
+      }
+    }
+  });
+
+  it('clamp a count outside the supported range', () => {
+    expect(presetSeats(DEFAULT_PRESET_ID, 0)).toHaveLength(MIN_OPPONENTS);
+    expect(presetSeats(DEFAULT_PRESET_ID, 99)).toHaveLength(MAX_OPPONENTS);
   });
 
   it('exposes a default preset that exists', () => {

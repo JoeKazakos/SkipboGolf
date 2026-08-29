@@ -254,3 +254,47 @@ search until the position is consistent. Budget the effort there.
 - Is this a separate screen, or a "set up a position" button on the setup
   screen?
 - Worth allowing a position to be saved or shared as a string?
+
+---
+
+## Show what an opponent is holding
+
+**Status:** wanted, not started. Raised 2026-08-29.
+
+**What:** when a computer player has drawn a card but not yet placed or
+discarded it, show that card in an "in hand" slot on their seat, the way the
+human's own holding slot works.
+
+**Why:** it makes the opponents legible. You can watch them pick something up
+and follow what they do with it, instead of seeing the board change all at
+once.
+
+### Watch the hidden-information rule
+
+This is the whole difficulty, and it must not be got wrong.
+
+A held card is only public when the draw made it public. `knownCards` in
+`state.ts` already encodes exactly this: it includes `s.held` **only** when
+`s.current === viewer`. A card taken from the centre or from a visible discard
+top was seen by everyone and may be shown face up. A card drawn blind from the
+pile was seen by nobody and must be rendered face **down**.
+
+`describeAction` in `format.ts` already draws precisely this distinction for
+the action log - it names the rank for a centre or discard draw and stays
+silent for a pile draw - so the same rule is already written down and can be
+reused rather than re-derived.
+
+Getting this wrong would leak hidden information to the human and quietly
+break the game, so any implementation wants a test in the shape of the
+existing "no rank rendered for any face-down card" test.
+
+### Notes
+
+- `Observation` currently carries a single `held` field for the observer. It
+  will need a per-player notion of "is holding, and here is the card if you are
+  entitled to see it".
+- The seat is already tight at phone sizes with two seats per row, so an extra
+  slot needs a compact treatment - possibly just a small card badge beside the
+  name rather than a full holding box.
+- The opponent pause is short at Fast speed, so the held card may flash by. It
+  may only be genuinely useful at Normal or Slow.

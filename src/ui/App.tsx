@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { observationFor } from '../engine/state';
 import { ActionLog } from './ActionLog';
 import { DrawSources } from './DrawSources';
@@ -125,7 +125,10 @@ export function App(props: AppProps = {}) {
       )}
 
       <main className="table">
-        <div className="opponents">
+        <div
+          className="opponents"
+          style={{ '--seat-count': obs.players.length - 1 } as CSSProperties}
+        >
           {obs.players.map((p, i) =>
             i === HUMAN ? null : (
               <OpponentSeat

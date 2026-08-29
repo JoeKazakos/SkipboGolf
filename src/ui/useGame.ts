@@ -4,7 +4,7 @@ import type { Action, GameState } from '../engine/types';
 import type { Agent } from '../ai/agent';
 import { createHintAgent, createOpponentAgent } from './agents';
 import { HUMAN, PLAYER_NAMES, describeAction, describeSuggestion, playerName, type SeatNames } from './format';
-import { DEFAULT_PRESET_ID, presetById, profileById } from '../ai/roster';
+import { DEFAULT_OPPONENTS, DEFAULT_PRESET_ID, presetSeats, profileById } from '../ai/roster';
 
 export interface LogEntry {
   id: number;
@@ -164,9 +164,12 @@ export function useGame(options: UseGameOptions = {}) {
   const { seed = 1, initialState, aiDelayMs = DEFAULT_AI_DELAY_MS } = options;
 
   const seatIds = useMemo(
-    () => options.seats ?? presetById(DEFAULT_PRESET_ID).seats,
+    () => options.seats ?? presetSeats(DEFAULT_PRESET_ID, DEFAULT_OPPONENTS),
     [options.seats],
   );
+
+  /** The human plus one seat per opponent. */
+  const numPlayers = seatIds.length + 1;
 
   const names: SeatNames = useMemo(() => {
     // An injected agent means a test harness, which expects the stock names.
@@ -189,7 +192,7 @@ export function useGame(options: UseGameOptions = {}) {
   );
 
   const [ui, dispatch] = useReducer(reducer, null, () =>
-    freshState(initialState ?? createInitialState(seed), names),
+    freshState(initialState ?? createInitialState(seed, numPlayers), names),
   );
   const [hintPending, setHintPending] = useState(false);
 
@@ -229,12 +232,15 @@ export function useGame(options: UseGameOptions = {}) {
     [game, seq],
   );
 
-  const newGame = useCallback((nextSeed?: number) => {
-    dispatch({
-      t: 'reset',
-      game: createInitialState(nextSeed ?? Math.floor(Math.random() * 2 ** 31)),
-    });
-  }, []);
+  const newGame = useCallback(
+    (nextSeed?: number) => {
+      dispatch({
+        t: 'reset',
+        game: createInitialState(nextSeed ?? Math.floor(Math.random() * 2 ** 31), numPlayers),
+      });
+    },
+    [numPlayers],
+  );
 
   // ---- Opponent driver -----------------------------------------------------
   // One action is scheduled per render in which an opponent is to move. The
