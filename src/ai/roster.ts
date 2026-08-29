@@ -227,8 +227,11 @@ export interface Preset {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  /** Five profile ids, one per opponent seat. */
-  readonly seats: readonly [string, string, string, string, string];
+  /**
+   * Profile ids in seating order, longest table first. A table with fewer
+   * opponents takes the first N, so a preset keeps its character at any size.
+   */
+  readonly seats: readonly string[];
 }
 
 export const PRESETS: readonly Preset[] = [
@@ -236,29 +239,45 @@ export const PRESETS: readonly Preset[] = [
     id: 'gentle',
     name: 'Gentle',
     description: 'A friendly table for learning the rules.',
-    seats: ['pip', 'pip', 'dot', 'dot', 'nel'],
+    seats: ['pip', 'pip', 'dot', 'dot', 'nel', 'nel'],
   },
   {
     id: 'club',
     name: 'Club night',
     description: 'A mixed table, the way a real game goes.',
-    seats: ['dot', 'nel', 'nel', 'vin', 'ada'],
+    seats: ['dot', 'nel', 'nel', 'vin', 'ada', 'vin'],
   },
   {
     id: 'tough',
     name: 'Tough crowd',
     description: 'Everyone here can play.',
-    seats: ['nel', 'vin', 'ada', 'ada', 'rook'],
+    seats: ['nel', 'vin', 'ada', 'ada', 'rook', 'rook'],
   },
   {
     id: 'gauntlet',
     name: 'The gauntlet',
     description: 'Five of the best. Good luck.',
-    seats: ['ada', 'rook', 'rook', 'sage', 'sage'],
+    seats: ['ada', 'rook', 'rook', 'sage', 'sage', 'sage'],
   },
 ];
 
 export const DEFAULT_PRESET_ID = 'club';
+
+/** Opponent counts the table supports, alongside the one human player. */
+export const MIN_OPPONENTS = 1;
+export const MAX_OPPONENTS = 6;
+export const DEFAULT_OPPONENTS = 5;
+
+/** The first `count` seats of a preset, which is how a preset scales. */
+export function presetSeats(id: string, count: number): string[] {
+  const preset = presetById(id);
+  const clamped = Math.max(MIN_OPPONENTS, Math.min(MAX_OPPONENTS, count));
+  const seats = preset.seats.slice(0, clamped);
+  // Every preset lists MAX_OPPONENTS, but guard rather than return a short
+  // table if one is ever edited down.
+  while (seats.length < clamped) seats.push(seats[seats.length - 1] ?? DEFAULT_PROFILE_ID);
+  return seats;
+}
 
 export function presetById(id: string): Preset {
   const found = PRESETS.find((p) => p.id === id);

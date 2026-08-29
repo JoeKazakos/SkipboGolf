@@ -210,7 +210,9 @@ body {
 /* ------------------------------------------------------------------- seats */
 .opponents {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* Driven by the real number of seats, set inline by App, so a table of two
+     or of six lays out correctly rather than assuming five. */
+  grid-template-columns: repeat(var(--seat-count, 5), minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1455,4 +1457,40 @@ button.spot--legal:focus-visible .card {
   .seat {
     padding: 6px 7px 8px;
   }
+}
+
+/* ------------------------------------------------------- opponent count row */
+.count-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.count-btn {
+  font: inherit;
+  font-weight: 700;
+  min-width: 44px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: inherit;
+  cursor: pointer;
+}
+
+.count-btn:hover {
+  border-color: var(--gold);
+}
+
+.count-btn--on {
+  background: var(--felt);
+  border-color: var(--felt);
+  color: #fff;
+}
+
+.count-note {
+  margin-left: 8px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
 }
