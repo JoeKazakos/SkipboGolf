@@ -6,6 +6,19 @@ was already worked out, and what is still open.
 
 Delete an entry when it ships or when it is decided against.
 
+## At a glance
+
+| Priority | Item |
+| -------- | ---- |
+| High | Show what an opponent is holding |
+| Medium | Opponent seats stretch when there are few of them *(bug)* |
+| Medium | Rate the human player |
+| Medium | A stronger opponent above Sage |
+| Low | Tighten the error bars on the CPU ratings |
+| Low | Position setup and analysis mode |
+
+Keep this table in step with the Status lines below when priorities change.
+
 ---
 
 ## Rate the human player
@@ -117,9 +130,12 @@ gets built should be honest about that rather than projecting false precision.
 
 ## Tighten the error bars on the CPU ratings
 
-**Status:** wanted, not started. Raised 2026-08-29. Pairs with "Rate the human
-player": that feature fits the player against these ratings as fixed anchors,
-so the anchors want to be firm first.
+**Status:** wanted, not started. **Priority: low.** Raised 2026-08-29. Pairs
+with "Rate the human player": that feature fits the player against these
+ratings as fixed anchors, so the anchors want to be firm first. Note the
+priority mismatch - the dependent feature is medium while this is low, so
+either accept looser anchors for a first version of it, or promote this when
+that work starts.
 
 **What:** get the roster's Elo error bars well below their current +/-26 to
 +/-48, so adjacent tiers are actually separable.
@@ -158,7 +174,7 @@ under "Rate the human player". Decide the two together.
 
 ## A stronger opponent above Sage
 
-**Status:** wanted, not started. Raised 2026-08-29.
+**Status:** wanted, not started. **Priority: medium.** Raised 2026-08-29.
 
 **What:** a new roster tier that is genuinely stronger than Sage, not merely
 given more time.
@@ -259,7 +275,7 @@ search until the position is consistent. Budget the effort there.
 
 ## Show what an opponent is holding
 
-**Status:** wanted, not started. Raised 2026-08-29.
+**Status:** wanted, not started. **Priority: high.** Raised 2026-08-29.
 
 **What:** when a computer player picks up a card that everyone saw them take -
 from another player's discard pile, or the centre card - show it face up in an
