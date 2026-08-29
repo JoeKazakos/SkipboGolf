@@ -1,35 +1,38 @@
 import type { Agent } from '../ai/agent';
+import { createAgentForProfile, profileById, type OpponentProfile } from '../ai/roster';
 import { createWorkerAgent } from '../ai/worker';
 
 /**
- * Per-decision search budget for the computer players.
- *
- * A turn is several decisions (draw, then one placement per wave in the chain,
- * then the discard), so the per-turn cost is roughly three to four times this.
- * 150ms therefore lands a normal turn near 500ms, which is the deliberate
- * starting point: fast enough to keep a six-player round brisk, and already
- * strong. Raise it if the opponents feel weak - measured self-play at 100ms
- * per decision already puts ISMCTS about 170 Elo above the heuristic, and the
- * search keeps improving with more time. The search runs in a Web Worker, so
- * the main thread stays responsive however high this goes.
+ * The hint is a single on-demand decision, so it can afford to think longer
+ * than any opponent does.
  */
-const OPPONENT_BUDGET_MS = 150;
-
-/** The hint is a single on-demand decision, so it can afford to think longer. */
 const HINT_BUDGET_MS = 1500;
 
 /**
- * The single place the UI decides which agent drives the computer players.
+ * Builds the agent for one seated opponent.
+ *
+ * The searching profiles run in a Web Worker so the main thread stays
+ * responsive while they think; the cheap profiles (random, heuristic) return
+ * fast enough to run inline, and spawning a worker each would be wasteful.
  */
-export function createOpponentAgent(seed = 20250828): Agent {
-  return createWorkerAgent({ name: 'ismcts', seed, budgetMs: OPPONENT_BUDGET_MS });
+export function createOpponentAgent(profile: OpponentProfile, seed = 20250828): Agent {
+  if (profile.kind !== 'ismcts') return createAgentForProfile(profile, seed);
+  const worker = createWorkerAgent({
+    name: profile.name,
+    seed,
+    budgetMs: profile.budgetMs ?? 150,
+  });
+  return worker.name === profile.name ? worker : { ...worker, name: profile.name };
 }
 
 /**
- * The agent consulted by the HINT button on the human's behalf. Kept separate
- * from the opponents so the two can diverge (it searches longer), and given its
- * own worker so asking for a hint never contends with an opponent's turn.
+ * The agent consulted by the HINT button on the human's behalf. Deliberately
+ * independent of who is seated: the quality of your advice should not depend
+ * on how weak an opponent you chose to play against.
  */
 export function createHintAgent(seed = 7): Agent {
   return createWorkerAgent({ name: 'hint', seed, budgetMs: HINT_BUDGET_MS });
 }
+
+/** The advisor behind the hint button, exposed for tests and tooling. */
+export const HINT_PROFILE = () => profileById('ada');

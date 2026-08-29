@@ -10,10 +10,13 @@ export function visibleRanks(grid: ObservedGrid): (number | null)[] {
 
 export const HUMAN = 0;
 
-export const PLAYER_NAMES = ['You', 'Ada', 'Baz', 'Cleo', 'Dex', 'Etta'] as const;
+/** Seat 0 is always the human; seats 1..5 are named by the chosen opponents. */
+export type SeatNames = readonly string[];
 
-export function playerName(p: number): string {
-  return PLAYER_NAMES[p] ?? `Player ${p + 1}`;
+export const PLAYER_NAMES: SeatNames = ['You', 'Ada', 'Baz', 'Cleo', 'Dex', 'Etta'];
+
+export function playerName(p: number, names: SeatNames = PLAYER_NAMES): string {
+  return names[p] ?? `Player ${p + 1}`;
 }
 
 /** Short label printed on a card face. 13 is the Skip-Bo card. */
@@ -86,9 +89,13 @@ export function runningScore(ranks: readonly (number | null)[]): RunningScore {
  * public: a card drawn face-down from the pile, or a card displaced into an
  * opponent's hand, stays unnamed unless the human is the one holding it.
  */
-export function describeAction(pre: GameState, action: Action): string {
+export function describeAction(
+  pre: GameState,
+  action: Action,
+  names: SeatNames = PLAYER_NAMES,
+): string {
   const player = pre.current;
-  const who = playerName(player);
+  const who = playerName(player, names);
   const isHuman = player === HUMAN;
   const subject = isHuman ? 'You' : who;
   const verb = (base: string, thirdPerson: string) => (isHuman ? base : thirdPerson);
@@ -107,7 +114,7 @@ export function describeAction(pre: GameState, action: Action): string {
       const pile = pre.players[src.player].discard;
       const top = pile[pile.length - 1];
       const rank = top ? rankLabel(top.rank) : '?';
-      return `${subject} ${verb('take', 'takes')} the ${rank} from ${playerName(src.player)}'s discard.`;
+      return `${subject} ${verb('take', 'takes')} the ${rank} from ${playerName(src.player, names)}'s discard.`;
     }
     case 'place': {
       const rank = pre.held ? rankLabel(pre.held.rank) : '?';
@@ -125,7 +132,11 @@ export function describeAction(pre: GameState, action: Action): string {
 }
 
 /** A short, human-readable rendering of a suggested action, for the hint panel. */
-export function describeSuggestion(state: GameState, action: Action): string {
+export function describeSuggestion(
+  state: GameState,
+  action: Action,
+  names: SeatNames = PLAYER_NAMES,
+): string {
   switch (action.type) {
     case 'draw': {
       const src = action.source;
@@ -136,7 +147,7 @@ export function describeSuggestion(state: GameState, action: Action): string {
       if (src.kind === 'pile') return 'Draw from the face-down pile.';
       const pile = state.players[src.player].discard;
       const top = pile[pile.length - 1];
-      return `Take the ${top ? rankLabel(top.rank) : '?'} from ${playerName(src.player)}'s discard.`;
+      return `Take the ${top ? rankLabel(top.rank) : '?'} from ${playerName(src.player, names)}'s discard.`;
     }
     case 'place': {
       const rank = state.held ? rankLabel(state.held.rank) : 'held card';

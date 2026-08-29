@@ -3,7 +3,8 @@ import { applyAction, createInitialState, legalActions } from '../engine/state';
 import type { Action, GameState } from '../engine/types';
 import type { Agent } from '../ai/agent';
 import { createHintAgent, createOpponentAgent } from './agents';
-import { HUMAN, describeAction, describeSuggestion, playerName } from './format';
+import { HUMAN, PLAYER_NAMES, describeAction, describeSuggestion, playerName, type SeatNames } from './format';
+import { DEFAULT_PRESET_ID, presetById, profileById } from '../ai/roster';
 
 export interface LogEntry {
   id: number;
@@ -21,6 +22,9 @@ export interface Hint {
 
 interface UiState {
   game: GameState;
+  /** Seat names, fixed for the life of a game. Held here so the reducer,
+   *  which builds the log text outside React, can name players. */
+  names: SeatNames;
   log: LogEntry[];
   /**
    * Number of actions applied so far. Every dispatch carries the sequence it
@@ -38,14 +42,15 @@ type UiAction =
   | { t: 'clearHint' }
   | { t: 'reset'; game: GameState };
 
-function freshState(game: GameState): UiState {
+function freshState(game: GameState, names: SeatNames): UiState {
   return {
     game,
+    names,
     log: [
       {
         id: 0,
         player: -1,
-        text: `New round dealt. ${playerName(game.current)} to play.`,
+        text: `New round dealt. ${playerName(game.current, names)} to play.`,
         kind: 'event',
       },
     ],
@@ -58,7 +63,7 @@ function freshState(game: GameState): UiState {
 function reducer(s: UiState, a: UiAction): UiState {
   switch (a.t) {
     case 'reset':
-      return freshState(a.game);
+      return freshState(a.game, s.names);
 
     case 'clearHint':
       return s.hint == null ? s : { ...s, hint: null };
@@ -77,10 +82,15 @@ function reducer(s: UiState, a: UiAction): UiState {
 
       const entries: LogEntry[] = [];
       let id = s.nextLogId;
-      entries.push({ id: id++, player: actor, text: describeAction(pre, a.action), kind: 'move' });
+      entries.push({
+        id: id++,
+        player: actor,
+        text: describeAction(pre, a.action, s.names),
+        kind: 'move',
+      });
 
       if (pre.triggerPlayer === null && next.triggerPlayer !== null) {
-        const name = playerName(next.triggerPlayer);
+        const name = playerName(next.triggerPlayer, s.names);
         const verb = next.triggerPlayer === HUMAN ? 'have' : 'has';
         entries.push({
           id: id++,
@@ -100,6 +110,7 @@ function reducer(s: UiState, a: UiAction): UiState {
 
       return {
         game: next,
+        names: s.names,
         log: [...s.log, ...entries],
         seq: s.seq + 1,
         hint: null,
@@ -121,9 +132,12 @@ export interface UseGameOptions {
   seed?: number;
   /** Pre-built state, used by tests to start from a specific position. */
   initialState?: GameState;
-  /** Injected so tests can run an instant, deterministic opponent. */
+  /** Injected so tests can run an instant, deterministic opponent. When set,
+   *  it drives every opponent seat and the roster seating is ignored. */
   agent?: Agent;
   hintAgent?: Agent;
+  /** Roster profile id per opponent seat, for players 1..5. */
+  seats?: readonly string[];
   /** Pause between opponent actions so a human can follow along. */
   aiDelayMs?: number;
 }
@@ -149,14 +163,33 @@ const EMPTY_LEGALITY: Legality = {
 export function useGame(options: UseGameOptions = {}) {
   const { seed = 1, initialState, aiDelayMs = DEFAULT_AI_DELAY_MS } = options;
 
-  const agent = useMemo(() => options.agent ?? createOpponentAgent(), [options.agent]);
+  const seatIds = useMemo(
+    () => options.seats ?? presetById(DEFAULT_PRESET_ID).seats,
+    [options.seats],
+  );
+
+  const names: SeatNames = useMemo(() => {
+    // An injected agent means a test harness, which expects the stock names.
+    if (options.agent) return PLAYER_NAMES;
+    return ['You', ...seatIds.map((id) => profileById(id).name)];
+  }, [options.agent, seatIds]);
+
+  /**
+   * One agent per opponent seat. An injected `agent` overrides every seat so
+   * tests keep a single deterministic opponent.
+   */
+  const seatAgents = useMemo(() => {
+    if (options.agent) return null;
+    return seatIds.map((id, i) => createOpponentAgent(profileById(id), 1 + i * 31));
+  }, [options.agent, seatIds]);
+
   const hintAgent = useMemo(
     () => options.hintAgent ?? options.agent ?? createHintAgent(),
     [options.hintAgent, options.agent],
   );
 
   const [ui, dispatch] = useReducer(reducer, null, () =>
-    freshState(initialState ?? createInitialState(seed)),
+    freshState(initialState ?? createInitialState(seed), names),
   );
   const [hintPending, setHintPending] = useState(false);
 
@@ -230,7 +263,9 @@ export function useGame(options: UseGameOptions = {}) {
           // No budgetMs here: aiDelayMs is the pacing delay that makes the
           // opponents watchable, not a thinking budget. Passing it would cap
           // the search at a fraction of a second. The agent carries its own.
-          const action = await agent.chooseAction(game, actor, {
+          const actingAgent = options.agent ?? seatAgents?.[actor - 1];
+          if (!actingAgent) throw new Error(`no agent seated for player ${actor}`);
+          const action = await actingAgent.chooseAction(game, actor, {
             signal: controller.signal,
           });
           if (cancelled) return;
@@ -246,7 +281,7 @@ export function useGame(options: UseGameOptions = {}) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [game, seq, agent, aiDelayMs]);
+  }, [game, seq, seatAgents, options.agent, aiDelayMs]);
 
   // ---- Hint ----------------------------------------------------------------
   const requestHint = useCallback(() => {
@@ -256,7 +291,10 @@ export function useGame(options: UseGameOptions = {}) {
     void (async () => {
       try {
         const action = await hintAgent.chooseAction(game, HUMAN, { budgetMs: 1000 });
-        dispatch({ t: 'hint', hint: { action, text: describeSuggestion(game, action), seq: mySeq } });
+        dispatch({
+          t: 'hint',
+          hint: { action, text: describeSuggestion(game, action, names), seq: mySeq },
+        });
       } catch {
         /* a hint is advisory; a failure just leaves the panel empty */
       } finally {
@@ -269,6 +307,7 @@ export function useGame(options: UseGameOptions = {}) {
 
   return {
     game,
+    names,
     log: ui.log,
     hint: ui.hint,
     hintPending,

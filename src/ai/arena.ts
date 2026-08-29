@@ -4,6 +4,7 @@ import type { GameState } from '../engine/types';
 import { createRandomAgent, type Agent } from './agent';
 import { createHeuristicAgent } from './heuristic';
 import { createIsmctsAgent } from './ismcts';
+import { ROSTER, createAgentForProfile } from './roster';
 
 /**
  * Self-play harness, in the spirit of ludometer: agent strength is measured by
@@ -63,10 +64,19 @@ export async function playGame(
   return returns(state);
 }
 
-/** Rotates seating so no agent keeps the first-player advantage. */
-function seatOrder(agents: readonly Agent[], game: number): Agent[] {
+/**
+ * Rotates seating so no agent keeps the first-player advantage.
+ *
+ * Rotates the pool by one seat per game and takes the first `seatCount`.
+ *
+ * When the pool is larger than the table, this means a different agent sits
+ * out each game, so every agent still plays a roughly equal number of games
+ * against a roughly equal mix of opponents.
+ */
+function seatOrder(agents: readonly Agent[], game: number, seatCount?: number): Agent[] {
   const n = agents.length;
-  return Array.from({ length: n }, (_, i) => agents[(i + game) % n]);
+  const take = Math.min(seatCount ?? n, n);
+  return Array.from({ length: take }, (_, i) => agents[(i + game) % n]);
 }
 
 /**
@@ -143,14 +153,21 @@ export interface ArenaReport {
  */
 export async function runArena(
   agents: readonly Agent[],
-  options: { games?: number; seed?: number; budgetMs?: number; onGame?: (i: number) => void } = {},
+  options: {
+    games?: number;
+    seed?: number;
+    budgetMs?: number;
+    /** Seats at the table. Defaults to the whole pool; set it lower to rotate. */
+    seatCount?: number;
+    onGame?: (i: number) => void;
+  } = {},
 ): Promise<ArenaReport> {
   const games = options.games ?? 100;
   const baseSeed = options.seed ?? 1;
   const results: GameResult[] = [];
 
   for (let g = 0; g < games; g++) {
-    const seats = seatOrder(agents, g);
+    const seats = seatOrder(agents, g, options.seatCount);
     const seed = baseSeed + g * 104729;
     const scores = await playGame(seats, seed, { budgetMs: options.budgetMs });
     results.push({ seed, seats: seats.map((a) => a.name), scores });
@@ -228,17 +245,37 @@ export function defaultLadder(budgetMs: number): Agent[] {
   return [ismcts, heuristic, random, ismcts, heuristic, random].slice(0, NUM_PLAYERS);
 }
 
+/**
+ * The playable roster as an Elo ladder.
+ *
+ * Each profile uses its real configured budget, so the ratings this produces
+ * describe the opponents you actually face rather than some calibration-only
+ * variant of them. The pool is larger than the table, so runArena rotates one
+ * agent out per game.
+ */
+function rosterLadder(): Agent[] {
+  return ROSTER.map((profile, i) => createAgentForProfile(profile, 1000 + i * 17));
+}
+
 async function main(): Promise<void> {
   const env = (typeof process !== 'undefined' && process?.env) || {};
   const games = Number(env.ARENA_GAMES ?? 200);
   const budgetMs = Number(env.ARENA_BUDGET_MS ?? 250);
+  const useRoster = env.ARENA_ROSTER === '1';
   const started = Date.now();
 
-  // eslint-disable-next-line no-console
-  console.log(`running ${games} games at ${budgetMs}ms per ISMCTS decision...`);
-  const report = await runArena(defaultLadder(budgetMs), {
+  const ladder = useRoster ? rosterLadder() : defaultLadder(budgetMs);
+  console.log(
+    useRoster
+      ? `running ${games} games over the ${ladder.length}-agent roster at each profile's own budget...`
+      : `running ${games} games at ${budgetMs}ms per ISMCTS decision...`,
+  );
+  const report = await runArena(ladder, {
     games,
     seed: 20260828,
+    seatCount: NUM_PLAYERS,
+    // The roster agents carry their own budgets; do not override them.
+    budgetMs: useRoster ? undefined : budgetMs,
     onGame: (i) => {
       if (i % 10 === 0) console.log(`  ${i}/${games} games`);
     },

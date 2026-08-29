@@ -1,12 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './ui/App';
+import { Root } from './ui/Root';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('#root is missing from index.html');
 
 createRoot(container).render(
   <StrictMode>
-    <App seed={Math.floor(Math.random() * 2 ** 31)} />
+    <Root />
   </StrictMode>,
 );

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { observationFor } from '../engine/state';
 import { ActionLog } from './ActionLog';
 import { DrawSources } from './DrawSources';
@@ -6,6 +6,7 @@ import { GameOver } from './GameOver';
 import { HumanArea } from './HumanArea';
 import { OpponentSeat } from './OpponentSeat';
 import { HUMAN, playerName } from './format';
+import { DEFAULT_PRESET_ID, presetById, profileById } from '../ai/roster';
 import { DEFAULT_AI_DELAY_MS, useGame, type UseGameOptions } from './useGame';
 import './styles.css';
 
@@ -15,12 +16,18 @@ const SPEEDS = [
   { label: 'Fast', factor: 0.35 },
 ] as const;
 
-export function App(props: UseGameOptions = {}) {
+export interface AppProps extends UseGameOptions {
+  /** Shown as a "Change opponents" button when the caller can reseat the table. */
+  onChangeTable?: () => void;
+}
+
+export function App(props: AppProps = {}) {
   const [speed, setSpeed] = useState(1);
   const baseDelay = props.aiDelayMs ?? DEFAULT_AI_DELAY_MS;
 
   const {
     game,
+    names,
     log,
     hint,
     hintPending,
@@ -32,6 +39,16 @@ export function App(props: UseGameOptions = {}) {
     requestHint,
     clearHint,
   } = useGame({ ...props, aiDelayMs: Math.round(baseDelay * speed) });
+
+  // Profiles for the five opponent seats, so each seat can show its rating.
+  // An injected agent (tests) means no roster seating, hence the empty list.
+  const seatProfiles = useMemo(
+    () =>
+      props.agent
+        ? []
+        : (props.seats ?? presetById(DEFAULT_PRESET_ID).seats).map((id) => profileById(id)),
+    [props.agent, props.seats],
+  );
 
   // Everything rendered comes from the human's observation, so no card that is
   // hidden from player 0 can reach the DOM.
@@ -56,7 +73,7 @@ export function App(props: UseGameOptions = {}) {
       ? game.phase === 'draw'
         ? 'Your turn — take a card'
         : 'Your turn — place it, wave, or discard'
-      : `${playerName(game.current)} is playing`;
+      : `${playerName(game.current, names)} is playing`;
 
   const finalCycle =
     game.triggerPlayer !== null && game.finalTurnsRemaining !== null && !game.terminal;
@@ -92,11 +109,16 @@ export function App(props: UseGameOptions = {}) {
         <button type="button" className="btn btn--ghost" onClick={() => newGame()}>
           New round
         </button>
+        {props.onChangeTable && (
+          <button type="button" className="btn btn--ghost" onClick={props.onChangeTable}>
+            Change opponents
+          </button>
+        )}
       </header>
 
       {finalCycle && (
         <div className="banner banner--final" role="status">
-          {playerName(game.triggerPlayer as number)} closed the round —{' '}
+          {playerName(game.triggerPlayer as number, names)} closed the round —{' '}
           {game.finalTurnsRemaining} final turn
           {game.finalTurnsRemaining === 1 ? '' : 's'} to go.
         </div>
@@ -109,6 +131,9 @@ export function App(props: UseGameOptions = {}) {
               <OpponentSeat
                 key={i}
                 player={i}
+                name={names[i] ?? `Player ${i + 1}`}
+                blurb={seatProfiles[i - 1]?.blurb}
+                elo={seatProfiles[i - 1]?.elo ?? null}
                 grid={p.grid}
                 discardTop3={p.discardTop3}
                 discardCount={p.discardCount}
@@ -176,10 +201,10 @@ export function App(props: UseGameOptions = {}) {
           )}
         </section>
 
-        <ActionLog entries={log} />
+        <ActionLog entries={log} names={names} />
       </aside>
 
-      {game.terminal && <GameOver state={game} onNewGame={() => newGame()} />}
+      {game.terminal && <GameOver state={game} names={names} onNewGame={() => newGame()} />}
     </div>
   );
 }
