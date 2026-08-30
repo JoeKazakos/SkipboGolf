@@ -10,7 +10,6 @@ Delete an entry when it ships or when it is decided against.
 
 | Priority | Item |
 | -------- | ---- |
-| Medium | Rate the human player |
 | Medium | A stronger opponent above Sage |
 | Low | Tighten the error bars on the CPU ratings |
 | Low | Position setup and analysis mode |
@@ -22,112 +21,6 @@ Add new preferences there rather than to the top bar.
 
 ---
 
-## Rate the human player
-
-**Status:** wanted, not started. **Priority: medium.** Raised 2026-08-29;
-deferred deliberately, not blocked on anything.
-
-**What:** track the player's own results across rounds and give them a rating on
-the same scale as the AI roster, so "am I getting better?" has an answer.
-
-**Why:** the opponents already carry measured ratings, so the player has a
-strength ladder to be placed against but no place on it.
-
-### Already worked out
-
-Nothing exists yet: the app has no persistence at all (no `localStorage`, no
-match history). Every round is standalone.
-
-The precision question was answered, so do not re-derive it. The AI ladder is
-the empirical noise floor: about 103 games per agent produced bootstrap error
-bars of +/-26 to +/-48 Elo, mean about +/-35. Error falls as 1/sqrt(games):
-
-| games | precision |
-| ----- | --------- |
-| 10    | +/-110    |
-| 20    | +/-79     |
-| 30    | +/-65     |
-| 50    | +/-50     |
-| 100   | +/-36     |
-| 200   | +/-25     |
-
-Against the gaps that actually need resolving - Pip to Dot is 303 Elo, Dot to
-Nel 278, Nel to Vin 88, Vin to Sage 89 - that gives:
-
-- about 20 games to place someone confidently in a strength band
-- about 50 games for a number worth quoting
-- about 100 games to match the precision of the AI ratings themselves
-- separating yourself *within* the Strong/Expert tier is not realistically
-  achievable, because those tiers are only about 90 Elo apart and the ladder
-  could not separate Rook from Ada either
-
-A six-player round yields five pairwise results, not one, which is why these
-counts are lower than chess intuition suggests.
-
-### Design sketch
-
-- Persist round results to `localStorage`.
-- Fit the player's rating against the AI ratings as **fixed anchors**, rather
-  than refitting everyone jointly. Far more stable, and the anchors are already
-  measured.
-- Show progress honestly: "12 games in, +/-95, provisional".
-- Show a **band** rather than a number until the error bar is tight enough to
-  justify one, matching how the setup screen already leads with strength rather
-  than Elo.
-
-### Named local profiles
-
-Several people share one browser, and they must not pollute each other's
-rating. Keep it as light as possible: **a name, and nothing else.** No
-passwords, no accounts.
-
-- Pick or create a profile on the setup screen; the chosen name becomes the
-  seat name for player 0. `names[0]` is already data rather than the constant
-  `'You'`, so the table needs no change to display it.
-- Each profile owns its own rating and its own game history.
-- Handle the dull cases: renaming, deleting, and two profiles given the same
-  name. A name is an identifier here, so either forbid duplicates or key on a
-  generated id and treat the name as a label. The second is less annoying.
-- Make the active profile visible on the table, so a game is never
-  accidentally recorded against the wrong person.
-
-### History screen
-
-A detailed view, separate from the game itself:
-
-- **Every past game**: date, who was at the table and how strong they were,
-  your score, where you finished, and your rating before and after with the
-  change.
-- **Rating over time**, as a line. Plot the uncertainty band alongside the
-  point estimate rather than the point alone - a rating that moved 40 points
-  while carrying a +/-90 error bar has not really moved, and a bare line would
-  imply it had.
-- Mark where a rating stopped being provisional.
-
-**Store raw results, not computed ratings.** Persist the finished games -
-opponents, scores, seats, date - and derive the whole rating curve by replaying
-the fit whenever it is displayed. Storing the rating after each game is simpler
-but goes stale: re-measuring the roster moves the anchors, and then the stored
-history disagrees with the current number and neither can be trusted.
-Recomputing from raw results keeps the curve coherent, and makes the anchors
-question below a non-issue for history even if it still matters for the
-headline rating.
-
-### Open questions
-
-- Does a rating reset when the roster is re-measured, or carry over? Re-running
-  the ladder moves the anchors.
-- Only count games against a varied mix of opponents? Twenty wins over Pip say
-  almost nothing, and a naive fit would happily produce a confident wrong number.
-- Anything to show when a player deliberately farms a weak table?
-
-### Caveat to keep in view
-
-This is a single-round, high-luck game. A rating here will always be noisier
-than in a low-variance game, and no amount of bookkeeping fixes that. Whatever
-gets built should be honest about that rather than projecting false precision.
-
----
 
 ## Tighten the error bars on the CPU ratings
 

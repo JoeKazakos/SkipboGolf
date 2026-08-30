@@ -3,11 +3,21 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_OPPONENTS, PRESETS, ROSTER, presetSeats } from '../ai/roster';
 import { TableSetup } from './TableSetup';
+import { ProfilesProvider } from './ProfilesContext';
+
+/** TableSetup reads the player profiles, so it needs the provider. */
+function renderSetup(props: Parameters<typeof TableSetup>[0]) {
+  return render(
+    <ProfilesProvider>
+      <TableSetup {...props} />
+    </ProfilesProvider>,
+  );
+}
 
 describe('TableSetup', () => {
   it('starts on the default preset and deals those seats', async () => {
     const onStart = vi.fn();
-    render(<TableSetup onStart={onStart} />);
+    renderSetup({ onStart });
 
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
@@ -17,7 +27,7 @@ describe('TableSetup', () => {
 
   it('applies a preset to every seat', async () => {
     const onStart = vi.fn();
-    render(<TableSetup onStart={onStart} />);
+    renderSetup({ onStart });
 
     const tough = PRESETS.find((p) => p.id === 'tough')!;
     await userEvent.click(screen.getByRole('button', { name: new RegExp(tough.name) }));
@@ -28,7 +38,7 @@ describe('TableSetup', () => {
 
   it('lets one seat be overridden without disturbing the others', async () => {
     const onStart = vi.fn();
-    render(<TableSetup onStart={onStart} />);
+    renderSetup({ onStart });
 
     await userEvent.selectOptions(screen.getByLabelText('Opponent in seat 3'), 'sage');
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
@@ -41,7 +51,7 @@ describe('TableSetup', () => {
   it('deals the chosen number of opponents', async () => {
     for (const n of [1, 3, 6]) {
       const onStart = vi.fn();
-      const { unmount } = render(<TableSetup onStart={onStart} />);
+      const { unmount } = renderSetup({ onStart });
       await userEvent.click(screen.getByRole('button', { name: `${n} opponent${n === 1 ? '' : 's'}` }));
       await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
       expect(onStart.mock.calls[0][0]).toHaveLength(n);
@@ -51,7 +61,7 @@ describe('TableSetup', () => {
 
   it('keeps seats already chosen when the table grows', async () => {
     const onStart = vi.fn();
-    render(<TableSetup onStart={onStart} />);
+    renderSetup({ onStart });
 
     await userEvent.selectOptions(screen.getByLabelText('Opponent in seat 1'), 'sage');
     await userEvent.click(screen.getByRole('button', { name: '6 opponents' }));
@@ -65,7 +75,7 @@ describe('TableSetup', () => {
 
   it('shrinking the table drops seats from the end only', async () => {
     const onStart = vi.fn();
-    render(<TableSetup onStart={onStart} />);
+    renderSetup({ onStart });
 
     const before = presetSeats('club', DEFAULT_OPPONENTS);
     await userEvent.click(screen.getByRole('button', { name: '2 opponents' }));
@@ -75,7 +85,7 @@ describe('TableSetup', () => {
   });
 
   it('offers every roster profile in each seat', () => {
-    render(<TableSetup onStart={vi.fn()} />);
+    renderSetup({ onStart: vi.fn() });
     const select = screen.getByLabelText('Opponent in seat 1');
     const options = within(select).getAllByRole('option').map((o) => o.textContent ?? '');
     for (const profile of ROSTER) {
@@ -84,7 +94,7 @@ describe('TableSetup', () => {
   });
 
   it('shows a strength word for each seat, not a raw rating', () => {
-    render(<TableSetup onStart={vi.fn()} />);
+    renderSetup({ onStart: vi.fn() });
     const seats = screen.getAllByRole('listitem');
     expect(seats).toHaveLength(5);
     for (const seat of seats) {
@@ -100,7 +110,7 @@ describe('TableSetup', () => {
   });
 
   it('keeps the exact ratings available in the details panel', () => {
-    render(<TableSetup onStart={vi.fn()} />);
+    renderSetup({ onStart: vi.fn() });
     const rows = within(screen.getByRole('table')).getAllByRole('row');
     for (const profile of ROSTER) {
       const row = rows.find(
@@ -114,7 +124,7 @@ describe('TableSetup', () => {
   });
 
   it('says "unrated" rather than inventing a number for an unmeasured profile', () => {
-    render(<TableSetup onStart={vi.fn()} />);
+    renderSetup({ onStart: vi.fn() });
     const unrated = ROSTER.filter((p) => p.elo == null).length;
     // Every seat showing an unmeasured profile must say so explicitly.
     if (unrated > 0) {

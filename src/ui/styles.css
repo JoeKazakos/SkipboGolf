@@ -1820,3 +1820,138 @@ button.spot--legal:focus-visible .card {
     animation: none;
   }
 }
+
+/* ------------------------------------------------------- players and record */
+.player-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.player-row select,
+.player-new {
+  font: inherit;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: inherit;
+}
+
+.player-new {
+  min-width: 140px;
+}
+
+.record {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.record__cell {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.record__label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+
+.record__value {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.record__value small {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.record__note {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin: 0 0 12px;
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+  margin-bottom: 14px;
+}
+
+.chart__band {
+  fill: var(--gold-soft);
+  stroke: none;
+}
+
+.chart__line {
+  fill: none;
+  stroke: var(--felt);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.chart__tick {
+  font-size: 10px;
+  fill: var(--ink-soft);
+}
+
+.record__list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.record__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+
+.record__date {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.record__vs {
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record__score {
+  font-variant-numeric: tabular-nums;
+}
+
+.record__delta {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 44px;
+  text-align: right;
+}
+
+.record__delta--up {
+  color: var(--good);
+}
+
+.record__delta--down {
+  color: var(--accent);
+}
