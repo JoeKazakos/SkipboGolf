@@ -1948,6 +1948,15 @@ button.spot--legal:focus-visible .card {
 .record__date {
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.record__date small {
+  font-size: 0.72em;
+  opacity: 0.8;
 }
 
 .record__vs {

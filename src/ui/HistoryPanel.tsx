@@ -1,6 +1,31 @@
 import { useProfiles } from './ProfilesContext';
 import { fitRating, nearestTier, ratingHistory, PROVISIONAL_GAMES } from './rating';
-import { profileById } from '../ai/roster';
+import { ROSTER, profileById } from '../ai/roster';
+
+/** The span the measured opponents occupy, which is the useful part of the axis. */
+const ROSTER_RANGE = ROSTER.map((p) => p.elo).filter((e): e is number => e != null);
+
+/**
+ * When a round was played, as date over time.
+ *
+ * Stacked rather than run together so the row stays narrow enough for a phone,
+ * and rendered in the viewer's locale rather than a fixed format.
+ */
+function PlayedAt({ at }: { at: string }) {
+  const when = new Date(at);
+  if (Number.isNaN(when.getTime())) {
+    // A record written by a different version, or hand-edited storage.
+    return <span className="record__date">unknown</span>;
+  }
+  return (
+    <span className="record__date">
+      <span>{when.toLocaleDateString()}</span>
+      <small data-testid="record-time">
+        {when.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+      </small>
+    </span>
+  );
+}
 
 /** A short opponent name, tolerating a profile that no longer exists. */
 function seatName(id: string): string {
@@ -18,7 +43,18 @@ function seatName(id: string): string {
  * carrying a ninety-point error bar has not really moved, and a bare line would
  * imply that it had.
  */
-function RatingChart({ points }: { points: { rating: number; error: number }[] }) {
+/**
+ * Error above which a point is too vague to plot.
+ *
+ * A fit from one or two rounds can carry thousands of Elo of uncertainty - a
+ * record of all wins or all losses has no finite maximum and pegs to the
+ * search bounds. Plotting those made the axis run from -3730 to 4500 and the
+ * real movement invisible. They are not wrong, just useless to draw.
+ */
+const CHART_MAX_ERROR = 400;
+
+function RatingChart({ points: all }: { points: { rating: number; error: number }[] }) {
+  const points = all.filter((p) => p.error <= CHART_MAX_ERROR);
   if (points.length < 2) return null;
 
   const width = 520;
@@ -27,14 +63,22 @@ function RatingChart({ points }: { points: { rating: number; error: number }[] }
 
   const lows = points.map((p) => p.rating - p.error);
   const highs = points.map((p) => p.rating + p.error);
-  const min = Math.min(...lows);
-  const max = Math.max(...highs);
+  // Keep the axis inside the range the ratings actually live in, so a wide
+  // early band cannot flatten everything that follows into a straight line.
+  const floor = Math.min(...ROSTER_RANGE) - 200;
+  const ceiling = Math.max(...ROSTER_RANGE) + 200;
+  const min = Math.max(floor, Math.min(...lows));
+  const max = Math.min(ceiling, Math.max(...highs));
   const span = Math.max(1, max - min);
 
   const x = (i: number) =>
     pad.left + (i / (points.length - 1)) * (width - pad.left - pad.right);
-  const y = (v: number) =>
-    pad.top + (1 - (v - min) / span) * (height - pad.top - pad.bottom);
+  // Clamped, so a band wider than the axis is drawn to the edge rather than
+  // off the canvas.
+  const y = (v: number) => {
+    const clamped = Math.max(min, Math.min(max, v));
+    return pad.top + (1 - (clamped - min) / span) * (height - pad.top - pad.bottom);
+  };
 
   const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rating)}`).join(' ');
   const upper = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rating + p.error)}`);
@@ -129,6 +173,13 @@ export function HistoryPanel({ onClose }: { onClose: () => void }) {
             )}
 
             <RatingChart points={history} />
+            {history.length >= 2 &&
+              history.filter((h) => h.error <= CHART_MAX_ERROR).length < 2 && (
+                <p className="record__note" data-testid="chart-pending">
+                  Not enough rounds yet to draw a useful curve. The early fits carry
+                  hundreds of points of uncertainty, so the chart appears once they settle.
+                </p>
+              )}
 
             <h3 className="standings__title">Every round</h3>
             <ol className="record__list" data-testid="game-list">
@@ -145,9 +196,7 @@ export function HistoryPanel({ onClose }: { onClose: () => void }) {
                     before && now ? Math.round(now.rating - before.rating) : null;
                   return (
                     <li key={i} className="record__row" data-testid="game-row">
-                      <span className="record__date">
-                        {new Date(g.at).toLocaleDateString()}
-                      </span>
+                      <PlayedAt at={g.at} />
                       <span className="record__vs">
                         vs {g.seats.map(seatName).join(', ')}
                       </span>
