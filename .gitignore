@@ -30,3 +30,6 @@ Thumbs.db
 
 # Subagent git worktrees
 .claude/worktrees/
+
+# Self-play training data and checkpoints: large, regenerable, never committed.
+training/
