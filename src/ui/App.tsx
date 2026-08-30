@@ -35,6 +35,8 @@ export function App(props: AppProps = {}) {
     thinkingFor,
     legal,
     play,
+    canUndo,
+    undo,
     newGame,
     requestHint,
     clearHint,
@@ -174,6 +176,8 @@ export function App(props: AppProps = {}) {
           locked={obs.locked}
           legalSpots={legal.placeSpots}
           canDiscard={legal.canDiscard}
+          canUndo={canUndo}
+          onUndo={undo}
           hintSpot={hintSpot}
           onPlace={(spot) => play({ type: 'place', spot })}
           onDiscard={() => play({ type: 'discard' })}

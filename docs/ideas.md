@@ -10,7 +10,6 @@ Delete an entry when it ships or when it is decided against.
 
 | Priority | Item |
 | -------- | ---- |
-| High | Undo the current turn |
 | Medium | Rate the human player |
 | Medium | A stronger opponent above Sage |
 | Medium | An in-app rules reference |
@@ -284,41 +283,6 @@ search until the position is consistent. Budget the effort there.
 
 
 
-## Undo the current turn
-
-**Status:** wanted, not started. **Priority: high.** Raised 2026-08-29.
-
-**What:** let the player take back the placements made this turn, up to the
-point the discard commits it.
-
-**Why:** a placement is permanent *and* locks the spot, so one misclick is
-unrecoverable. That is sharpest on a phone, where grid cards are around 47px
-and sit next to each other.
-
-### Approach
-
-The engine is immutable - `applyAction` returns a new state and never mutates -
-so undo is snapshot-and-restore, not an inverse operation. Keep the state as it
-was at the start of the turn, and restore it.
-
-Watch three things:
-
-- The reducer in `useGame` holds more than the game: `log`, `seq`, `hint` and
-  `nextLogId`. Restoring only `game` would leave log entries describing moves
-  that no longer happened. Snapshot what has to roll back together.
-- `seq` guards against duplicate dispatches. Rewinding it risks a stale
-  in-flight dispatch matching again; safer to keep `seq` monotonic and restore
-  only the game and the log.
-- Undo must be impossible once the turn has ended, and while an opponent is
-  thinking.
-
-### Open question
-
-Undo the whole turn in one step, or one placement at a time? A wave chain can
-be several placements, and stepping back through it is friendlier, but the
-turn-start snapshot is much simpler. Suggest starting with whole-turn.
-
----
 
 ## Survive a page refresh
 

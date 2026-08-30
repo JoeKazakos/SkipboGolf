@@ -1519,3 +1519,18 @@ button.spot--legal:focus-visible .card {
 .seat__held .mini-label {
   white-space: nowrap;
 }
+
+.btn--undo {
+  background: transparent;
+  border: 1px solid var(--felt-ink-soft);
+  color: var(--felt-ink);
+}
+
+.btn--undo:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.btn--undo:disabled {
+  opacity: 0.4;
+}
