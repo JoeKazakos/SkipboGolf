@@ -35,7 +35,7 @@ export function GameOver({
   const best = Math.min(...scores);
   const winners = scores.map((s, i) => (s === best ? i : -1)).filter((i) => i >= 0);
   const humanWon = winners.includes(HUMAN);
-  const { settings } = useSettings();
+  const { settings, set } = useSettings();
 
   const ranking = scores
     .map((score, player) => ({ score, player }))
@@ -61,7 +61,17 @@ export function GameOver({
           {humanWon ? 'You win! ' : ''}
           {winnerText}
         </p>
-        <p className="scorecard__sub">Lowest score wins.</p>
+        <p className="scorecard__sub">
+          Lowest score wins.{' '}
+          <button
+            type="button"
+            className="linkbtn"
+            aria-pressed={settings.showScoreBreakdown}
+            onClick={() => set('showScoreBreakdown', !settings.showScoreBreakdown)}
+          >
+            {settings.showScoreBreakdown ? 'Hide working' : 'Show working'}
+          </button>
+        </p>
 
         <ol className="scorecard__list">
           {ranking.map(({ score, player }, place) => (

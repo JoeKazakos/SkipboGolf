@@ -33,12 +33,14 @@ export interface GameState {
   /** The card in hand during the 'act' phase. */
   held: Card | null;
   /**
-   * Whether everyone saw where the held card came from, and so knows its rank.
+   * Whether everyone knows the rank of the held card.
    *
-   * True for a card taken from the centre or from a visible discard top, and
-   * for a card displaced out of a face-up spot. False for a card drawn blind
-   * from the pile, or displaced out of a face-down spot - those are known only
-   * to the player holding them.
+   * True for every draw - the centre card, a discard top, and a card taken
+   * from the face-down pile, which is turned face up as it is taken
+   * (section 15.14) - and for a card displaced out of a face-up spot.
+   *
+   * False only for a card displaced out of a FACE-DOWN spot during a wave:
+   * that one is revealed to the player who lifted it and to nobody else.
    */
   heldIsPublic: boolean;
   phase: Phase;

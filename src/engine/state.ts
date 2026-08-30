@@ -158,7 +158,10 @@ export function applyAction(state: GameState, action: Action): GameState {
         const card = s.drawPile.pop();
         if (card == null) throw new Error('draw pile is empty and cannot be rebuilt');
         s.held = card;
-        s.heldIsPublic = false; // drawn blind; only the drawer knows it
+        // Turned face up as it is taken (section 15.14). The card that was
+        // drawn becomes public; the rest of the pile stays unknown to
+        // everyone, so nobody learns what is coming next.
+        s.heldIsPublic = true;
       } else {
         if (src.player === s.current) throw new Error('cannot draw from your own pile');
         const pile = s.players[src.player].discard;

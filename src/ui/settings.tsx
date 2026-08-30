@@ -17,7 +17,10 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  showScoreBreakdown: true,
+  // Off by default: most people know how to score, and the working is a wall
+  // of text on a card they mostly want to glance at. It is one tap away on
+  // the scorecard itself for anyone who wants it.
+  showScoreBreakdown: false,
   animateCards: true,
 };
 

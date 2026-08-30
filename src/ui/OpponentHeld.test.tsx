@@ -33,12 +33,26 @@ describe("an opponent's held card", () => {
     expect(card.getAttribute('data-rank')).toBe(String(s.held?.rank));
   });
 
-  it('is shown face down, with no rank anywhere, after a blind draw', () => {
+  it('is shown face up after a pile draw, which is turned over when taken', () => {
     const s = opponentHolding('pile');
-    expect(s.heldIsPublic).toBe(false);
-    const secret = s.held?.rank as number;
+    expect(s.heldIsPublic).toBe(true);
     render(<App initialState={s} agent={idleAgent} aiDelayMs={0} />);
 
+    const slot = screen.getByTestId('opponent-held');
+    const card = within(slot).getByRole('img');
+    expect(card.getAttribute('data-facedown')).toBe('false');
+    expect(card.getAttribute('data-rank')).toBe(String(s.held?.rank));
+  });
+
+  it('is shown face down, with no rank anywhere, when lifted from a hidden spot', () => {
+    // The remaining private case, and the one the leak test must guard.
+    let s = opponentHolding('center');
+    const faceDown = s.players[s.current].grid.findIndex((slot) => !slot.faceUp);
+    s = applyAction(s, { type: 'place', spot: faceDown });
+    expect(s.heldIsPublic).toBe(false);
+    const secret = s.held?.rank as number;
+
+    render(<App initialState={s} agent={idleAgent} aiDelayMs={0} />);
     const slot = screen.getByTestId('opponent-held');
     const card = within(slot).getByRole('img');
     expect(card.getAttribute('data-facedown')).toBe('true');
