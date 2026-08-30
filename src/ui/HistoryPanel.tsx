@@ -81,6 +81,22 @@ function RatingChart({ points: all }: { points: { rating: number; error: number 
   };
 
   const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rating)}`).join(' ');
+
+  /**
+   * The opponents, drawn as reference lines.
+   *
+   * A rating means nothing on its own; what a player wants to know is "am I
+   * past Nel yet?". Only rated profiles inside the visible band are drawn, and
+   * near-identical tiers are collapsed so their labels do not overlap.
+   */
+  const refs: { elo: number; label: string }[] = [];
+  for (const profile of ROSTER) {
+    const elo = profile.elo;
+    if (elo == null || elo < min || elo > max) continue;
+    const near = refs.find((r) => Math.abs(r.elo - elo) < span * 0.07);
+    if (near) near.label += `, ${profile.name}`;
+    else refs.push({ elo, label: profile.name });
+  }
   const upper = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rating + p.error)}`);
   const lower = [];
   for (let i = points.length - 1; i >= 0; i--) {
@@ -93,10 +109,24 @@ function RatingChart({ points: all }: { points: { rating: number; error: number 
       className="chart"
       viewBox={`0 0 ${width} ${height}`}
       role="img"
-      aria-label={`Rating over ${points.length} games, currently ${points[points.length - 1].rating} give or take ${points[points.length - 1].error}`}
+      aria-label={
+        `Rating over ${points.length} games, currently ${points[points.length - 1].rating} ` +
+        `give or take ${points[points.length - 1].error}. ` +
+        (refs.length
+          ? `Shown against ${refs.map((r) => `${r.label} at ${r.elo}`).join(', ')}.`
+          : '')
+      }
       data-testid="rating-chart"
     >
       <path className="chart__band" d={band} />
+      {refs.map((r) => (
+        <g key={r.label} className="chart__ref">
+          <line x1={pad.left} x2={width - pad.right} y1={y(r.elo)} y2={y(r.elo)} />
+          <text x={width - pad.right} y={y(r.elo) - 3} textAnchor="end">
+            {r.label}
+          </text>
+        </g>
+      ))}
       <path className="chart__line" d={line} />
       <text className="chart__tick" x={4} y={y(max) + 4}>
         {Math.round(max)}

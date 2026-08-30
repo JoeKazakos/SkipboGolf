@@ -11,7 +11,7 @@ import { DEFAULT_AI_DELAY_MS, useGame, type UseGameOptions } from './useGame';
 import { SettingsPanel } from './settings';
 import { RulesPanel } from './RulesPanel';
 import { AnalysisPanel } from './AnalysisPanel';
-import { returns } from '../engine/state';
+import { returns, stillToActInFinalCycle } from '../engine/state';
 import type { GameState } from '../engine/types';
 import { useEffect } from 'react';
 import './styles.css';
@@ -79,6 +79,11 @@ export function App(props: AppProps = {}) {
   // Everything rendered comes from the human's observation, so no card that is
   // hidden from player 0 can reach the DOM.
   const obs = observationFor(game, HUMAN);
+  // Opponents still owed a turn, used only once the human's own is done.
+  const othersToAct = game.players.reduce(
+    (n, _, p) => (p !== HUMAN && stillToActInFinalCycle(game, p) ? n + 1 : n),
+    0,
+  );
   const me = obs.players[HUMAN];
 
   const hintSpot = hint?.action.type === 'place' ? hint.action.spot : null;
@@ -166,10 +171,20 @@ export function App(props: AppProps = {}) {
       </header>
 
       {finalCycle && (
-        <div className="banner banner--final" role="status">
-          {playerName(game.triggerPlayer as number, names)} closed the round —{' '}
-          {game.finalTurnsRemaining} final turn
-          {game.finalTurnsRemaining === 1 ? '' : 's'} to go.
+        <div className="banner banner--final" role="status" data-testid="final-banner">
+          {playerName(game.triggerPlayer as number, names)} closed the round.{' '}
+          {/*
+            Count only the player's OWN remaining turn. finalTurnsRemaining is
+            the table's total, which read as "5 final turns to go" when the
+            player in fact had exactly one.
+          */}
+          {stillToActInFinalCycle(game, HUMAN)
+            ? 'You have one final turn.'
+            : othersToAct === 0
+              ? 'Scoring the round…'
+              : `Your final turn is done — waiting on ${othersToAct} more ${
+                  othersToAct === 1 ? 'player' : 'players'
+                }.`}
         </div>
       )}
 

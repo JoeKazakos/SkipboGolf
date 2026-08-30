@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import { HistoryPanel } from './HistoryPanel';
 import { ProfilesProvider } from './ProfilesContext';
 import { PROVISIONAL_GAMES, type PlayedGame } from './rating';
+import { ROSTER } from '../ai/roster';
 
 function seed(games: PlayedGame[]) {
   localStorage.setItem(
@@ -145,5 +146,44 @@ describe('when a round was played', () => {
     show();
     expect(screen.getAllByTestId('game-row')).toHaveLength(1);
     expect(screen.getByText('unknown')).toBeTruthy();
+  });
+});
+
+describe('opponent reference lines', () => {
+  it('marks the opponents the player is being compared against', () => {
+    seed(Array.from({ length: 30 }, (_, i) => game(i, i % 3 === 0 ? 4 : 22)));
+    show();
+    const chart = screen.getByTestId('rating-chart');
+    const refs = [...chart.querySelectorAll('.chart__ref text')].map((t) => t.textContent ?? '');
+    expect(refs.length).toBeGreaterThan(0);
+    // Every label names a real roster opponent.
+    const names = new Set(ROSTER.map((p) => p.name));
+    for (const label of refs) {
+      for (const part of label.split(', ')) expect(names.has(part)).toBe(true);
+    }
+  });
+
+  it('describes them to a screen reader too', () => {
+    seed(Array.from({ length: 30 }, (_, i) => game(i, i % 3 === 0 ? 4 : 22)));
+    show();
+    const label = screen.getByTestId('rating-chart').getAttribute('aria-label') ?? '';
+    expect(label).toMatch(/Shown against/);
+  });
+
+  it('draws no reference outside the visible range', () => {
+    seed(Array.from({ length: 30 }, (_, i) => game(i, i % 3 === 0 ? 4 : 22)));
+    show();
+    const chart = screen.getByTestId('rating-chart');
+    const ticks = [...chart.querySelectorAll('.chart__tick')].map((t) => Number(t.textContent));
+    const lo = Math.min(...ticks);
+    const hi = Math.max(...ticks);
+    const shown = [...chart.querySelectorAll('.chart__ref text')]
+      .flatMap((t) => (t.textContent ?? '').split(', '))
+      .map((n) => ROSTER.find((p) => p.name === n)?.elo)
+      .filter((e): e is number => e != null);
+    for (const elo of shown) {
+      expect(elo).toBeGreaterThanOrEqual(lo);
+      expect(elo).toBeLessThanOrEqual(hi);
+    }
   });
 });

@@ -2126,3 +2126,17 @@ button.spot--legal:focus-visible .card {
 .linkbtn:hover {
   color: var(--ink);
 }
+
+/* Opponent ratings, drawn behind the player's own line for comparison. */
+.chart__ref line {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  opacity: 0.45;
+}
+
+.chart__ref text {
+  font-size: 9px;
+  fill: var(--ink-soft);
+  opacity: 0.85;
+}
