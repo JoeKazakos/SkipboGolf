@@ -1955,3 +1955,48 @@ button.spot--legal:focus-visible .card {
 .record__delta--down {
   color: var(--accent);
 }
+
+/* ---------------------------------------------------------------- analysis */
+.analysis__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.analysis__spot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.analysis__spot select {
+  font: inherit;
+  font-size: 0.8rem;
+  width: 100%;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: inherit;
+}
+
+.analysis__warn {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  background: var(--gold-soft);
+  border: 1px solid var(--gold);
+}
+
+.analysis__result {
+  margin-top: 14px;
+  font-size: 0.85rem;
+}
+
+.analysis__best {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+}

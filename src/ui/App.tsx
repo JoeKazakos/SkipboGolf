@@ -10,6 +10,7 @@ import { DEFAULT_PRESET_ID, presetById, profileById } from '../ai/roster';
 import { DEFAULT_AI_DELAY_MS, useGame, type UseGameOptions } from './useGame';
 import { SettingsPanel } from './settings';
 import { RulesPanel } from './RulesPanel';
+import { AnalysisPanel } from './AnalysisPanel';
 import { returns } from '../engine/state';
 import type { GameState } from '../engine/types';
 import { useEffect } from 'react';
@@ -40,6 +41,7 @@ export function App(props: AppProps = {}) {
   const [speed, setSpeed] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const baseDelay = props.aiDelayMs ?? DEFAULT_AI_DELAY_MS;
 
   const {
@@ -140,6 +142,14 @@ export function App(props: AppProps = {}) {
         )}
         <button type="button" className="btn btn--ghost" onClick={() => setShowRules(true)}>
           How to play
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          disabled={game.terminal}
+          onClick={() => setShowAnalysis(true)}
+        >
+          Analyse
         </button>
         <button
           type="button"
@@ -250,6 +260,9 @@ export function App(props: AppProps = {}) {
       </aside>
 
       {showRules && <RulesPanel onClose={() => setShowRules(false)} />}
+      {showAnalysis && (
+        <AnalysisPanel state={game} names={names} onClose={() => setShowAnalysis(false)} />
+      )}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {game.terminal && (
         <GameOver
