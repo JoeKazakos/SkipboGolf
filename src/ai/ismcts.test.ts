@@ -135,7 +135,7 @@ describe('ismctsSearch', () => {
   });
 
   it('short-circuits when only one action is legal', () => {
-    // At the deal every discard pile is empty, so removing the centre card
+    // At the deal every discard pile is empty, so removing the center card
     // leaves the draw pile as the single legal source.
     const forced: GameState = { ...createInitialState(5), centerCard: null };
     expect(legalActions(forced)).toHaveLength(1);

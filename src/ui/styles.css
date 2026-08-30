@@ -446,7 +446,7 @@ button.spot--legal:focus-visible .card {
 }
 
 .spot__lock {
-  /* Bottom edge, not the centre: the rank sits in the middle of the card. */
+  /* Bottom edge, not the center: the rank sits in the middle of the card. */
   position: absolute;
   bottom: 5px;
   left: 50%;
@@ -602,7 +602,7 @@ button.spot--legal:focus-visible .card {
   border: 2px dashed rgba(255, 255, 255, 0.28);
   box-shadow: none;
   color: var(--felt-ink-soft);
-  /* Centre the caption and keep it inside the dashed box on small cards. */
+  /* Center the caption and keep it inside the dashed box on small cards. */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -628,7 +628,7 @@ button.spot--legal:focus-visible .card {
 }
 
 /* ------------------------------------------------------------ draw sources */
-.centre {
+.center {
   display: flex;
   justify-content: center;
 }
@@ -1458,7 +1458,7 @@ button.spot--legal:focus-visible .card {
    * so every turn starts with a scroll. Opponents move below as reference -
    * their discard piles are still reachable, just not in the way.
    */
-  .centre {
+  .center {
     order: 1;
   }
 

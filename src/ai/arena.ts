@@ -82,7 +82,7 @@ function seatOrder(agents: readonly Agent[], game: number, seatCount?: number): 
 /**
  * Fits Elo ratings to the pairwise finishes in `results`. K is annealed across
  * passes so the ratings settle rather than oscillate, and the final ratings are
- * recentred on 1500.
+ * recenterd on 1500.
  */
 export function computeElo(results: readonly GameResult[], passes = 60): Map<string, number> {
   const rating = new Map<string, number>();

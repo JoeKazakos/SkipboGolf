@@ -129,7 +129,7 @@ export function determinize(s: GameState, viewer: number, rng: Rng): GameState {
   }
   t.drawPile = t.drawPile.map(() => take());
   // Only redeal an opponent's held card when its rank is genuinely unknown.
-  // A card they took from the centre or off a discard top was seen by all, so
+  // A card they took from the center or off a discard top was seen by all, so
   // knownCards already counts it and redealing it would break the census.
   if (t.held != null && t.current !== viewer && !t.heldIsPublic) t.held = take();
 

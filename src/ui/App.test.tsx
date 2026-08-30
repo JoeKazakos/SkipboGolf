@@ -20,7 +20,7 @@ const firstLegalAgent: Agent = {
 };
 
 /**
- * Finds a deal in which the human can draw the centre card, place it somewhere,
+ * Finds a deal in which the human can draw the center card, place it somewhere,
  * and then have a legal wave available — the full turn shape the UI must
  * support. Derived from the engine so the test never hard-codes a board.
  */
@@ -63,21 +63,21 @@ describe('a complete human turn', () => {
     expect(screen.getByTestId('turn-banner').textContent).toMatch(/Your turn/);
     expect(screen.getByTestId('phase-badge').textContent).toMatch(/Draw/);
 
-    const centre = screen.getByRole('button', { name: /Draw the centre card/ });
-    const centreRank = Number(centre.querySelector('[data-rank]')?.getAttribute('data-rank'));
-    expect(Number.isFinite(centreRank)).toBe(true);
-    fireEvent.click(centre);
+    const center = screen.getByRole('button', { name: /Draw the center card/ });
+    const centerRank = Number(center.querySelector('[data-rank]')?.getAttribute('data-rank'));
+    expect(Number.isFinite(centerRank)).toBe(true);
+    fireEvent.click(center);
 
-    // --- act phase, holding the centre card
+    // --- act phase, holding the center card
     expect(screen.getByTestId('phase-badge').textContent).toMatch(/Act/);
     expect(document.querySelector('.card--held')?.getAttribute('data-rank')).toBe(
-      String(centreRank),
+      String(centerRank),
     );
 
     // --- first placement: any unlocked spot is legal
     fireEvent.click(spotButton(spot));
     const placed = spotButton(spot);
-    expect(placed.querySelector('[data-rank]')?.getAttribute('data-rank')).toBe(String(centreRank));
+    expect(placed.querySelector('[data-rank]')?.getAttribute('data-rank')).toBe(String(centerRank));
     expect(placed.getAttribute('data-locked')).toBe('true');
 
     // --- wave
@@ -102,7 +102,7 @@ describe('placement legality in the DOM', () => {
   it('offers every spot on the first placement and only legal waves afterwards', () => {
     const { seed, spot } = findWaveScenario();
     render(<App seed={seed} agent={idleAgent} aiDelayMs={0} />);
-    fireEvent.click(screen.getByRole('button', { name: /Draw the centre card/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Draw the center card/ }));
 
     // First placement: all ten spots enabled (section 15.11 step 2).
     for (let i = 0; i < 10; i++) {
@@ -135,7 +135,7 @@ describe('placement legality in the DOM', () => {
   it('locks a spot after it has been played into once', () => {
     const { seed, spot } = findWaveScenario();
     render(<App seed={seed} agent={idleAgent} aiDelayMs={0} />);
-    fireEvent.click(screen.getByRole('button', { name: /Draw the centre card/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Draw the center card/ }));
     fireEvent.click(spotButton(spot));
 
     const locked = spotButton(spot) as HTMLButtonElement;

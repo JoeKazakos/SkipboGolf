@@ -73,10 +73,25 @@ function reshuffleDiscards(s: GameState): void {
   s.rngState = rng.state;
 }
 
+/**
+ * True when placing the held card at `spot` would change nothing at all.
+ *
+ * The spot already shows the held rank face up, so afterwards the grid is
+ * identical and the player still holds that rank. The only effect is locking a
+ * spot, which strictly loses an option (section 15.15).
+ */
+export function isNullPlacement(s: GameState, spot: number): boolean {
+  if (s.held == null) return false;
+  const slot = s.players[s.current].grid[spot];
+  return slot.faceUp && slot.card.rank === s.held.rank;
+}
+
 /** True when the held card may legally be waved into the given spot. */
 export function isWaveLegal(s: GameState, spot: number): boolean {
   if (s.held == null) return false;
   if (s.locked[spot]) return false;
+  // A placement that cannot change anything is not offered (section 15.15).
+  if (isNullPlacement(s, spot)) return false;
   const opposite = s.players[s.current].grid[oppositeOf(spot)];
   return opposite.faceUp && opposite.card.rank === s.held.rank;
 }
@@ -104,8 +119,11 @@ export function legalActions(s: GameState): Action[] {
   // Holding a card. Discarding is always available (section 15.3).
   actions.push({ type: 'discard' });
   if (s.placements === 0) {
-    // The first placement of a turn may target any spot (section 6).
-    for (let i = 0; i < GRID_SIZE; i++) actions.push({ type: 'place', spot: i });
+    // The first placement of a turn may target any spot (section 6), except
+    // one that would change nothing (section 15.15).
+    for (let i = 0; i < GRID_SIZE; i++) {
+      if (!isNullPlacement(s, i)) actions.push({ type: 'place', spot: i });
+    }
   } else {
     for (let i = 0; i < GRID_SIZE; i++) {
       if (isWaveLegal(s, i)) actions.push({ type: 'place', spot: i });
@@ -149,9 +167,9 @@ export function applyAction(state: GameState, action: Action): GameState {
       if (s.phase !== 'draw') throw new Error('draw is only legal in the draw phase');
       const src = action.source;
       if (src.kind === 'center') {
-        if (s.centerCard == null) throw new Error('no centre card remains');
+        if (s.centerCard == null) throw new Error('no center card remains');
         s.held = s.centerCard;
-        s.heldIsPublic = true; // everyone could see the centre card
+        s.heldIsPublic = true; // everyone could see the center card
         s.centerCard = null; // never replaced (section 15.10)
       } else if (src.kind === 'pile') {
         if (s.drawPile.length === 0) reshuffleDiscards(s);

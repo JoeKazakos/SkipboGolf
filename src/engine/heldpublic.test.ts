@@ -10,7 +10,7 @@ function act(s: GameState, pick: (a: Action) => boolean): GameState {
 }
 
 describe('heldIsPublic', () => {
-  it('is true after taking the centre card', () => {
+  it('is true after taking the center card', () => {
     const s = createInitialState(11);
     const after = act(s, (a) => a.type === 'draw' && a.source.kind === 'center');
     expect(after.heldIsPublic).toBe(true);

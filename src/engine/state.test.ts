@@ -39,7 +39,7 @@ describe('deal', () => {
     }
   });
 
-  it('turns one centre card face up and leaves the rest as the draw pile', () => {
+  it('turns one center card face up and leaves the rest as the draw pile', () => {
     expect(s.centerCard).not.toBeNull();
     expect(s.drawPile).toHaveLength(DECK_SIZE - NUM_PLAYERS * GRID_SIZE - 1);
   });
@@ -54,7 +54,7 @@ describe('deal', () => {
 });
 
 describe('draw legality', () => {
-  it('offers the centre card, the pile, but never your own discard pile', () => {
+  it('offers the center card, the pile, but never your own discard pile', () => {
     const s = createInitialState(7);
     s.players[0].discard.push(card(4));
     s.players[2].discard.push(card(9));
@@ -68,7 +68,7 @@ describe('draw legality', () => {
     expect(sources).not.toContainEqual({ kind: 'discard', player: 0 });
   });
 
-  it('removes the centre card permanently once taken', () => {
+  it('removes the center card permanently once taken', () => {
     let s = createInitialState(7);
     s = applyAction(s, { type: 'draw', source: { kind: 'center' } });
     expect(s.centerCard).toBeNull();
@@ -153,8 +153,13 @@ describe('spot locking (section 15.1)', () => {
     expect(() => applyAction(s, place(3))).toThrow(/already played/);
   });
 
-  it('never allows more than 10 placements in a turn', () => {
-    let s = stateWithGrid([5, 5, 5, 5, 5, 5, 5, 5, 5, 5], new Array(10).fill(true));
+  it('never allows more than 10 placements in a turn, and always terminates', () => {
+    // A chain cannot outrun the spot locks. This used to assert exactly ten,
+    // but the only way to reach ten was by placing a rank onto a visible card
+    // of the same rank over and over - moves that changed nothing and are no
+    // longer legal (section 15.15). The bound and the termination are the real
+    // invariants; the exact length depends on the position.
+    let s = stateWithGrid([5, 5, 5, 5, 5, 5, 5, 5, 5, 5], new Array(10).fill(false));
     s.phase = 'act';
     s.held = card(5);
     let placements = 0;
@@ -163,8 +168,25 @@ describe('spot locking (section 15.1)', () => {
       s = applyAction(s, next);
       placements++;
       expect(placements).toBeLessThanOrEqual(GRID_SIZE);
+      // Every placement locks its spot, which is what bounds the chain.
+      expect(s.locked.filter(Boolean)).toHaveLength(placements);
     }
-    expect(placements).toBe(GRID_SIZE);
+    expect(placements).toBeGreaterThan(0);
+    expect(s.placements).toBe(placements);
+  });
+
+  it('bounds a chain from any reachable position, over many deals', () => {
+    // The bound has to hold in real play, not just in a contrived grid.
+    for (let seed = 1; seed <= 40; seed++) {
+      let s = createInitialState(seed);
+      let guard = 0;
+      while (!s.terminal && guard < 800) {
+        const acts = legalActions(s);
+        s = applyAction(s, acts[guard % acts.length]);
+        expect(s.placements).toBeLessThanOrEqual(GRID_SIZE);
+        guard++;
+      }
+    }
   });
 
   it('clears the locks at the start of the next turn', () => {

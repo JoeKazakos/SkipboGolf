@@ -13,7 +13,7 @@ interface Props {
 }
 
 /**
- * The two shared draw sources. The centre card exists only once per round and is
+ * The two shared draw sources. The center card exists only once per round and is
  * never replaced once taken (section 15.10), so its slot goes empty afterwards.
  */
 export function DrawSources({
@@ -28,7 +28,7 @@ export function DrawSources({
   return (
     <div className="draw-sources" aria-label="Shared draw sources">
       <div className="draw-source">
-        <span className="mini-label mini-label--center">Centre card</span>
+        <span className="mini-label mini-label--center">Center card</span>
         {centerCard == null ? (
           <CardSlotEmpty size="md" label="taken" />
         ) : canDrawCenter ? (
@@ -36,7 +36,7 @@ export function DrawSources({
             type="button"
             className={`pile-btn ${hintedSource === 'center' ? 'pile-btn--hint' : ''}`}
             onClick={onDrawCenter}
-            aria-label={`Draw the centre card, ${rankLabel(centerCard.rank)}`}
+            aria-label={`Draw the center card, ${rankLabel(centerCard.rank)}`}
           >
             <CardFace rank={centerCard.rank} size="md" />
             <span className="pile-btn__cta">take</span>

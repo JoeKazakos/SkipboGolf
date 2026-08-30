@@ -105,7 +105,7 @@ export function describeAction(
       const src = action.source;
       if (src.kind === 'center') {
         const rank = pre.centerCard ? rankLabel(pre.centerCard.rank) : '?';
-        return `${subject} ${verb('take', 'takes')} the centre card (${rank}).`;
+        return `${subject} ${verb('take', 'takes')} the center card (${rank}).`;
       }
       if (src.kind === 'pile') {
         // The pile is face down, but the card taken is turned over as it is
@@ -146,7 +146,7 @@ export function describeSuggestion(
       const src = action.source;
       if (src.kind === 'center') {
         const rank = state.centerCard ? rankLabel(state.centerCard.rank) : '?';
-        return `Take the centre card (${rank}).`;
+        return `Take the center card (${rank}).`;
       }
       if (src.kind === 'pile') return 'Draw from the face-down pile.';
       const pile = state.players[src.player].discard;
