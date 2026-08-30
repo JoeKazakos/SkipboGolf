@@ -13,29 +13,85 @@ export const INVALID_HAND_SCORE = 9999;
  *    right and a column may be used by at most one counted square.
  *  - A malformed hand scores 9999.
  */
-export function scoreGrid(grid: readonly (Rank | null | undefined)[]): number {
-  if (grid.length !== 10 || grid.some((r) => r == null)) return INVALID_HAND_SCORE;
+export interface ColumnBreakdown {
+  col: number;
+  top: Rank;
+  bottom: Rank;
+  /** A matching non-special pair, which cancels the column to zero. */
+  cancelled: boolean;
+  /** True where that card is a 7, 11 or Skip-Bo and so counts as zero. */
+  topIsZero: boolean;
+  bottomIsZero: boolean;
+  /** What this column contributed before square bonuses. */
+  points: number;
+}
+
+export interface SquareBreakdown {
+  /** Left column of the 2x2; it spans this column and the next. */
+  leftCol: number;
+  rank: Rank;
+}
+
+export interface ScoreBreakdown {
+  valid: boolean;
+  columns: ColumnBreakdown[];
+  squares: SquareBreakdown[];
+  /** Sum of the column points, before squares. */
+  base: number;
+  /** Total taken off by squares; negative or zero. */
+  squareBonus: number;
+  total: number;
+}
+
+/**
+ * Scores a hand and shows its working.
+ *
+ * `scoreGrid` is defined in terms of this, so the explanation shown to a
+ * player can never disagree with the score they were awarded.
+ */
+export function scoreBreakdown(grid: readonly (Rank | null | undefined)[]): ScoreBreakdown {
+  if (grid.length !== 10 || grid.some((r) => r == null)) {
+    return {
+      valid: false,
+      columns: [],
+      squares: [],
+      base: INVALID_HAND_SCORE,
+      squareBonus: 0,
+      total: INVALID_HAND_SCORE,
+    };
+  }
   const ranks = grid as readonly Rank[];
 
-  let score = 0;
+  const columns: ColumnBreakdown[] = [];
+  let base = 0;
   for (let col = 0; col < COLS; col++) {
     const top = ranks[col];
     const bottom = ranks[col + COLS];
-    if (top === bottom && !SPECIAL_RANKS.has(top)) continue;
-    if (!SPECIAL_RANKS.has(top)) score += top;
-    if (!SPECIAL_RANKS.has(bottom)) score += bottom;
+    const topIsZero = SPECIAL_RANKS.has(top);
+    const bottomIsZero = SPECIAL_RANKS.has(bottom);
+    const cancelled = top === bottom && !topIsZero;
+    const points = cancelled ? 0 : (topIsZero ? 0 : top) + (bottomIsZero ? 0 : bottom);
+    base += points;
+    columns.push({ col, top, bottom, cancelled, topIsZero, bottomIsZero, points });
   }
 
   // 2x2 squares, greedy left to right, no column reused. Special ranks DO count here.
+  const squares: SquareBreakdown[] = [];
   const used = new Array(COLS).fill(false);
   for (let col = 0; col < COLS - 1; col++) {
     if (used[col] || used[col + 1]) continue;
     const a = ranks[col];
     if (a === ranks[col + 1] && a === ranks[col + COLS] && a === ranks[col + 1 + COLS]) {
-      score -= 10;
+      squares.push({ leftCol: col, rank: a });
       used[col] = true;
       used[col + 1] = true;
     }
   }
-  return score;
+  const squareBonus = -10 * squares.length;
+
+  return { valid: true, columns, squares, base, squareBonus, total: base + squareBonus };
+}
+
+export function scoreGrid(grid: readonly (Rank | null | undefined)[]): number {
+  return scoreBreakdown(grid).total;
 }

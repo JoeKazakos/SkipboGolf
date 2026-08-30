@@ -1534,3 +1534,103 @@ button.spot--legal:focus-visible .card {
 .btn--undo:disabled {
   opacity: 0.4;
 }
+
+/* ---------------------------------------------------------------- settings */
+.panel-card {
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  padding: 22px 24px;
+  max-width: 460px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+
+.panel-card__title {
+  margin: 0 0 16px;
+  font-size: 1.3rem;
+}
+
+.setting {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.setting:hover {
+  border-color: var(--gold);
+}
+
+.setting input {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.setting span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.setting small {
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------ score working */
+.working {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+
+.working__cols {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 2px 14px;
+}
+
+.working__col {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.working__col--zero .working__detail {
+  color: var(--good);
+}
+
+.working__label {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  min-width: 42px;
+}
+
+.working__detail {
+  flex: 1;
+}
+
+.working__points {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.working__totals {
+  margin: 0;
+}
