@@ -68,6 +68,11 @@ export interface OpponentProfile {
   readonly budgetMs?: number;
   /** Blunder probability, for the blundering tier only. */
   readonly epsilon?: number;
+  /**
+   * Scale the value of turning cards face up by how close an opponent is to
+   * going out. Off for the measured tiers, so their ratings still stand.
+   */
+  readonly raceAware?: boolean;
 }
 
 /**
@@ -185,6 +190,20 @@ export const ROSTER: readonly OpponentProfile[] = [
     elo: 1733,
     eloError: 26,
   },
+  {
+    id: 'vera',
+    name: 'Vera',
+    blurb: 'Thinks like Sage, but watches how close everyone else is to going out.',
+    kind: 'ismcts',
+    budgetMs: 2000,
+    raceAware: true,
+    strength: 5,
+    tier: 'Expert',
+    meanScore: null,
+    winRate: null,
+    elo: null,
+    eloError: null,
+  },
 ];
 
 export const DEFAULT_PROFILE_ID = 'ada';
@@ -225,6 +244,7 @@ function buildAgent(profile: OpponentProfile, seed: number): Agent {
         name: profile.name,
         seed,
         budgetMs: profile.budgetMs ?? 150,
+        raceAware: profile.raceAware ?? false,
       });
   }
 }

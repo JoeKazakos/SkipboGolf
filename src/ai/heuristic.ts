@@ -43,6 +43,33 @@ const ROUND_END_BONUS = 3;
 /** Per opponent who could immediately wave the rank we are about to discard. */
 const DISCARD_GIFT_PENALTY = 0.25;
 
+/**
+ * How much harder a race-aware agent pushes to turn cards face up when an
+ * opponent is close to going out.
+ */
+const RACE_GAIN = 2.2;
+
+/**
+ * The value of turning a card face up, given how the race stands.
+ *
+ * The plain evaluation only ever sees your own grid, so it plays the same way
+ * whether the round has fifty turns left or one. When an opponent is one card
+ * from going out, a tidy hand you never get to finish is worth nothing, and
+ * flipping cards matters far more than polishing columns. This scales the
+ * face-up term by the closest opponent's progress.
+ */
+export function raceFaceUpWeight(s: GameState): number {
+  let closest = 0;
+  for (let p = 0; p < s.players.length; p++) {
+    if (p === s.current) continue;
+    let up = 0;
+    for (const slot of s.players[p].grid) if (slot.faceUp) up += 1;
+    if (up > closest) closest = up;
+  }
+  const pressure = closest / GRID_SIZE;
+  return FACE_UP_WEIGHT * (1 + RACE_GAIN * pressure * pressure);
+}
+
 /** Number of copies of each rank in a full deck, indexed by rank (index 0 unused). */
 export function deckRankCounts(): number[] {
   const counts = new Array<number>(14).fill(0);
@@ -149,14 +176,14 @@ export function expectedScore(view: GridView): number {
  * turned face up. The face-up term is what makes an agent race for the round-end
  * trigger instead of endlessly polishing a hand nobody will get to see.
  */
-export function evaluateGrid(view: GridView): number {
+export function evaluateGrid(view: GridView, faceUpWeight = FACE_UP_WEIGHT): number {
   let known = 0;
   for (const cell of view) if (cell != null) known += 1;
 
   let score = 0;
   for (let col = 0; col < COLS; col++) score += expectedColumnScore(view[col], view[col + COLS]);
   score += squareTerm(view, true);
-  score -= FACE_UP_WEIGHT * known;
+  score -= faceUpWeight * known;
   if (known === GRID_SIZE) score -= ROUND_END_BONUS;
   return score;
 }
@@ -208,9 +235,11 @@ interface TurnContext {
   /** Cost of ending the turn discarding a card whose rank we do not know. */
   unknownDiscardCost: number;
   budget: { nodes: number };
+  /** Value of a face-up card for this turn; raised when the race is tight. */
+  faceUpWeight: number;
 }
 
-function makeTurnContext(s: GameState, nodes: number): TurnContext {
+function makeTurnContext(s: GameState, nodes: number, raceAware: boolean): TurnContext {
   const discardCost = new Array<number>(14).fill(0);
   for (let rank = 1; rank <= 13; rank++) discardCost[rank] = discardPenalty(s, rank as Rank);
 
@@ -230,6 +259,7 @@ function makeTurnContext(s: GameState, nodes: number): TurnContext {
     discardCost,
     unknownDiscardCost: weight > 0 ? total / weight : 0,
     budget: { nodes },
+    faceUpWeight: raceAware ? raceFaceUpWeight(s) : FACE_UP_WEIGHT,
   };
 }
 
@@ -244,7 +274,7 @@ function makeTurnContext(s: GameState, nodes: number): TurnContext {
  */
 function bestTurnCost(ctx: TurnContext, held: Rank, placements: number): number {
   // Stopping now is always available (section 15.3), so it is the baseline.
-  let best = evaluateGrid(ctx.view) + ctx.discardCost[held];
+  let best = evaluateGrid(ctx.view, ctx.faceUpWeight) + ctx.discardCost[held];
   if (ctx.budget.nodes <= 0) return best;
 
   for (let spot = 0; spot < GRID_SIZE; spot++) {
@@ -275,7 +305,7 @@ function costAfterPlacing(
 
   const value =
     displaced == null
-      ? evaluateGrid(ctx.view) + ctx.unknownDiscardCost
+      ? evaluateGrid(ctx.view, ctx.faceUpWeight) + ctx.unknownDiscardCost
       : bestTurnCost(ctx, displaced, placements + 1);
 
   ctx.view[spot] = displaced;
@@ -295,12 +325,13 @@ export function turnSearchCosts(
   s: GameState,
   actions: readonly Action[],
   nodes = TURN_SEARCH_NODES,
+  raceAware = false,
 ): number[] {
-  const ctx = makeTurnContext(s, nodes);
+  const ctx = makeTurnContext(s, nodes, raceAware);
 
   if (s.phase !== 'draw') {
     const held = (s.held as { rank: Rank }).rank;
-    const stand = evaluateGrid(ctx.view) + ctx.discardCost[held];
+    const stand = evaluateGrid(ctx.view, ctx.faceUpWeight) + ctx.discardCost[held];
     return actions.map((action) => {
       if (action.type !== 'place') return stand;
       ctx.budget.nodes = nodes; // every candidate gets the same allowance
@@ -356,8 +387,12 @@ function normalisePriors(costs: readonly number[]): number[] {
 }
 
 /** The full-strength preference over actions. ISMCTS uses it at the root. */
-export function turnSearchPriors(s: GameState, actions: readonly Action[]): number[] {
-  return normalisePriors(turnSearchCosts(s, actions));
+export function turnSearchPriors(
+  s: GameState,
+  actions: readonly Action[],
+  raceAware = false,
+): number[] {
+  return normalisePriors(turnSearchCosts(s, actions, TURN_SEARCH_NODES, raceAware));
 }
 
 /** Picks the argmin of a cost vector, preferring the earlier action on a tie. */
@@ -371,18 +406,18 @@ function argmin(actions: readonly Action[], costs: readonly number[]): Action {
  * The strongest move this evaluation can justify, searched over the remainder of
  * the current turn. Exported so ISMCTS and the arena can share it.
  */
-export function heuristicAction(s: GameState): Action {
+export function heuristicAction(s: GameState, raceAware = false): Action {
   const actions = legalActions(s);
   if (actions.length === 0) throw new Error('no legal actions available');
-  return argmin(actions, turnSearchCosts(s, actions));
+  return argmin(actions, turnSearchCosts(s, actions, TURN_SEARCH_NODES, raceAware));
 }
 
 /** Greedy play under `evaluateGrid`, with no tree search. The arena's middle rung. */
-export function createHeuristicAgent(name = 'heuristic'): Agent {
+export function createHeuristicAgent(name = 'heuristic', raceAware = false): Agent {
   return {
     name,
     async chooseAction(state) {
-      return heuristicAction(state);
+      return heuristicAction(state, raceAware);
     },
   };
 }
@@ -483,13 +518,13 @@ export function policyPriors(s: GameState, actions: readonly Action[]): number[]
  * noise. ISMCTS runs this many thousands of times, so the draw is costed from a
  * single sampled rank rather than the full distribution.
  */
-export function rolloutAction(s: GameState, rng: Rng): Action {
+export function rolloutAction(s: GameState, rng: Rng, raceAware = false): Action {
   const actions = legalActions(s);
   if (actions.length === 0) throw new Error('no legal actions available');
   if (rng.next() < ROLLOUT_EPSILON) return actions[Math.floor(rng.next() * actions.length)];
 
   if (s.phase !== 'draw') {
-    return argmin(actions, turnSearchCosts(s, actions, ROLLOUT_TURN_NODES));
+    return argmin(actions, turnSearchCosts(s, actions, ROLLOUT_TURN_NODES, raceAware));
   }
 
   const view = gridView(s.players[s.current].grid);

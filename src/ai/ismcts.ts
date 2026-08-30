@@ -52,6 +52,11 @@ export interface IsmctsOptions {
    * accuracy.
    */
   rolloutTurnLimit?: number;
+  /**
+   * Scale the value of turning cards face up by how close an opponent is to
+   * going out. The plain evaluation ignores the race entirely.
+   */
+  raceAware?: boolean;
 }
 
 const DEFAULTS = {
@@ -196,14 +201,14 @@ function estimateScores(s: GameState): number[] {
 const ROLLOUT_ACTION_CAP = 4000;
 
 /** Plays the determinized world out under the cheap heuristic policy. */
-function rollout(start: GameState, rng: Rng, turnLimit: number): number[] {
+function rollout(start: GameState, rng: Rng, turnLimit: number, raceAware: boolean): number[] {
   let s = start;
   const firstTurn = s.turnCount;
   let steps = 0;
   while (!isTerminal(s)) {
     if (s.turnCount - firstTurn >= turnLimit) return estimateScores(s);
     if (steps >= ROLLOUT_ACTION_CAP) return estimateScores(s);
-    s = applyAction(s, rolloutAction(s, rng));
+    s = applyAction(s, rolloutAction(s, rng, raceAware));
     steps += 1;
   }
   return returns(s);
@@ -231,6 +236,7 @@ export function ismctsSearch(
   const c = options.explorationC ?? DEFAULTS.explorationC;
   const priorWeight = options.priorWeight ?? DEFAULTS.priorWeight;
   const turnLimit = options.rolloutTurnLimit ?? DEFAULTS.rolloutTurnLimit;
+  const raceAware = options.raceAware ?? false;
   const rng = makeRng(options.seed ?? (root.rngState ^ (root.turnCount * 2654435761)) >>> 0);
 
   const rootActions = legalActions(root);
@@ -241,7 +247,7 @@ export function ismctsSearch(
 
   const numPlayers = root.players.length;
   const tree = makeNode(root.current, numPlayers);
-  const rootPriors = turnSearchPriors(root, rootActions);
+  const rootPriors = turnSearchPriors(root, rootActions, raceAware);
   const deadline = Date.now() + budgetMs;
   let iterations = 0;
 
@@ -313,7 +319,7 @@ export function ismctsSearch(
       if (expanded) break;
     }
 
-    const reward = rewardVector(isTerminal(s) ? returns(s) : rollout(s, rng, turnLimit));
+    const reward = rewardVector(isTerminal(s) ? returns(s) : rollout(s, rng, turnLimit, raceAware));
     for (const visited of path) {
       visited.visits += 1;
       for (let i = 0; i < numPlayers; i++) visited.totals[i] += reward[i];
