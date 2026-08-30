@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { RulesPanel } from './RulesPanel';
+import { SettingsPanel } from './settings';
 import { DEFAULT_ROUNDS, ROUND_OPTIONS } from './match';
-import { useProfiles } from './ProfilesContext';
-import { HistoryPanel } from './HistoryPanel';
 import {
   DEFAULT_OPPONENTS,
   DEFAULT_PRESET_ID,
@@ -102,10 +101,8 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
   );
   const [presetId, setPresetId] = useState<string | null>(DEFAULT_PRESET_ID);
   const [showRules, setShowRules] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [rounds, setRounds] = useState<number>(DEFAULT_ROUNDS);
-  const [showHistory, setShowHistory] = useState(false);
-  const [newName, setNewName] = useState('');
-  const { store, active, add, choose, remove } = useProfiles();
 
   const applyPreset = (id: string) => {
     setPresetId(id);
@@ -142,10 +139,13 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
         <button type="button" className="btn btn--ghost" onClick={() => setShowRules(true)}>
           How to play
         </button>
+        <button type="button" className="btn btn--ghost" onClick={() => setShowSettings(true)}>
+          Settings
+        </button>
       </header>
 
       {showRules && <RulesPanel onClose={() => setShowRules(false)} />}
-      {showHistory && <HistoryPanel onClose={() => setShowHistory(false)} />}
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
 
       <section className="setup__section" aria-labelledby="count-heading">
         <h2 className="setup__heading" id="count-heading">
@@ -252,82 +252,6 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
               );
             })}
           </ul>
-        </section>
-
-      </details>
-
-      <details className="setup__more">
-        <summary className="setup__more-summary">Track a player&rsquo;s record</summary>
-        <section className="setup__section" aria-labelledby="player-heading">
-          <h2 className="setup__heading" id="player-heading">
-            Who is playing
-          </h2>
-          <div className="player-row">
-            <label className="visually-hidden" htmlFor="player-select">
-              Player
-            </label>
-            <select
-              id="player-select"
-              value={active?.id ?? ''}
-              onChange={(e) => choose(e.target.value || null)}
-            >
-              <option value="">Not tracked</option>
-              {store.profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <input
-              className="player-new"
-              type="text"
-              placeholder="Add a player"
-              value={newName}
-              aria-label="New player name"
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newName.trim()) {
-                  add(newName);
-                  setNewName('');
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="btn btn--ghost"
-              disabled={!newName.trim()}
-              onClick={() => {
-                add(newName);
-                setNewName('');
-              }}
-            >
-              Add
-            </button>
-            {active && (
-              <>
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  onClick={() => setShowHistory(true)}
-                >
-                  Record
-                </button>
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  onClick={() => remove(active.id)}
-                  aria-label={`Delete ${active.name}`}
-                >
-                  Delete
-                </button>
-              </>
-            )}
-          </div>
-          <p className="count-note">
-            {active
-              ? `Rounds will be recorded against ${active.name}.`
-              : 'Nobody selected, so rounds will not be recorded.'}
-          </p>
         </section>
 
       </details>
