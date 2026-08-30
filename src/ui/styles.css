@@ -1716,3 +1716,56 @@ button.spot--legal:focus-visible .card {
 .setup__head .btn--ghost {
   margin-top: 10px;
 }
+
+/* -------------------------------------------------------------- match play */
+.topbar__round {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.scorecard__round {
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-soft);
+}
+
+.standings {
+  margin: 14px 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.standings__title {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--ink-soft);
+}
+
+.standings__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.standings__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 0;
+}

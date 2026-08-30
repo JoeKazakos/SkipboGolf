@@ -14,10 +14,22 @@ export function GameOver({
   state,
   names,
   onNewGame,
+  match,
 }: {
   state: GameState;
   names: SeatNames;
   onNewGame: () => void;
+  /** Present only in a multi-round match; absent for a single-round game. */
+  match?: {
+    label: string | null;
+    /**
+     * Totals BEFORE this round. The round just played is added here, so the
+     * standings include it without the match state having advanced yet.
+     */
+    totalsBefore: readonly number[];
+    /** True when this round is the last one of the match. */
+    isOver: boolean;
+  };
 }) {
   const scores = returns(state);
   const best = Math.min(...scores);
@@ -37,7 +49,14 @@ export function GameOver({
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-label="Round over">
       <div className="scorecard">
-        <h2 className="scorecard__title">Round over</h2>
+        <h2 className="scorecard__title">
+          {match?.isOver ? 'Match over' : 'Round over'}
+        </h2>
+        {match?.label && !match.isOver && (
+          <p className="scorecard__round" data-testid="round-label">
+            {match.label} complete
+          </p>
+        )}
         <p className="scorecard__winner" data-testid="winner">
           {humanWon ? 'You win! ' : ''}
           {winnerText}
@@ -70,8 +89,27 @@ export function GameOver({
           ))}
         </ol>
 
+        {match && (
+          <div className="standings" data-testid="standings">
+            <h3 className="standings__title">
+              {match.isOver ? 'Final match standings' : 'Match standings'}
+            </h3>
+            <ol className="standings__list">
+              {match.totalsBefore
+                .map((before, player) => ({ total: before + scores[player], player }))
+                .sort((a, b) => a.total - b.total || a.player - b.player)
+                .map(({ total, player }) => (
+                  <li key={player} data-testid="standing" data-player={player} data-total={total}>
+                    <span>{playerName(player, names)}</span>
+                    <strong>{total}</strong>
+                  </li>
+                ))}
+            </ol>
+          </div>
+        )}
+
         <button type="button" className="btn btn--primary" onClick={onNewGame}>
-          Deal a new round
+          {match ? (match.isOver ? 'New match' : 'Next round') : 'Deal a new round'}
         </button>
       </div>
     </div>

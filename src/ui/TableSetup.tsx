@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RulesPanel } from './RulesPanel';
+import { DEFAULT_ROUNDS, ROUND_OPTIONS } from './match';
 import {
   DEFAULT_OPPONENTS,
   DEFAULT_PRESET_ID,
@@ -88,8 +89,8 @@ function RatingDetails() {
 }
 
 export interface TableSetupProps {
-  /** Called with five profile ids, one per opponent seat. */
-  onStart: (seats: string[]) => void;
+  /** Called with one profile id per opponent seat, and the match length. */
+  onStart: (seats: string[], rounds: number) => void;
   initialSeats?: readonly string[];
 }
 
@@ -99,6 +100,7 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
   );
   const [presetId, setPresetId] = useState<string | null>(DEFAULT_PRESET_ID);
   const [showRules, setShowRules] = useState(false);
+  const [rounds, setRounds] = useState<number>(DEFAULT_ROUNDS);
 
   const applyPreset = (id: string) => {
     setPresetId(id);
@@ -151,6 +153,7 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
                 type="button"
                 className={`count-btn ${seats.length === n ? 'count-btn--on' : ''}`}
                 aria-pressed={seats.length === n}
+                aria-label={`${n} opponent${n === 1 ? '' : 's'}`}
                 onClick={() => setCount(n)}
               >
                 {n}
@@ -159,6 +162,31 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
           )}
           <span className="count-note">
             {seats.length + 1} players at the table, including you
+          </span>
+        </div>
+      </section>
+
+      <section className="setup__section" aria-labelledby="rounds-heading">
+        <h2 className="setup__heading" id="rounds-heading">
+          How many rounds
+        </h2>
+        <div className="count-row" role="group" aria-label="Number of rounds">
+          {ROUND_OPTIONS.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`count-btn ${rounds === n ? 'count-btn--on' : ''}`}
+              aria-pressed={rounds === n}
+              aria-label={`${n} round${n === 1 ? '' : 's'}`}
+              onClick={() => setRounds(n)}
+            >
+              {n}
+            </button>
+          ))}
+          <span className="count-note">
+            {rounds === 1
+              ? 'One round, exactly as the rules describe'
+              : `Lowest total across ${rounds} rounds wins`}
           </span>
         </div>
       </section>
@@ -214,8 +242,8 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
         </ul>
       </section>
 
-      <button type="button" className="btn btn--start" onClick={() => onStart(seats)}>
-        Deal the round
+      <button type="button" className="btn btn--start" onClick={() => onStart(seats, rounds)}>
+        {rounds === 1 ? 'Deal the round' : 'Start the match'}
       </button>
 
       <RatingDetails />

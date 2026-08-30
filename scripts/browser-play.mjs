@@ -30,7 +30,7 @@ const deal = page.getByRole('button', { name: /Deal the round/ });
 if (await deal.count()) {
   const opponents = process.env.PLAY_OPPONENTS;
   if (opponents) {
-    await page.getByRole('button', { name: opponents, exact: true }).click();
+    await page.getByRole('button', { name: `${opponents} opponent${opponents === '1' ? '' : 's'}` }).click();
     await page.waitForTimeout(200);
   }
   await deal.click();

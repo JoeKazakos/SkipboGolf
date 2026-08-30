@@ -10,6 +10,7 @@ import { DEFAULT_PRESET_ID, presetById, profileById } from '../ai/roster';
 import { DEFAULT_AI_DELAY_MS, useGame, type UseGameOptions } from './useGame';
 import { SettingsPanel } from './settings';
 import { RulesPanel } from './RulesPanel';
+import { returns } from '../engine/state';
 import './styles.css';
 
 const SPEEDS = [
@@ -21,6 +22,14 @@ const SPEEDS = [
 export interface AppProps extends UseGameOptions {
   /** Shown as a "Change opponents" button when the caller can reseat the table. */
   onChangeTable?: () => void;
+  /** Match context, when this round is part of a multi-round match. */
+  match?: {
+    label: string | null;
+    totalsBefore: readonly number[];
+    isOver: boolean;
+  };
+  /** Called with this round's scores when the caller drives the next round. */
+  onRoundEnd?: (scores: number[]) => void;
 }
 
 export function App(props: AppProps = {}) {
@@ -115,6 +124,11 @@ export function App(props: AppProps = {}) {
         <button type="button" className="btn btn--ghost" onClick={() => newGame()}>
           New round
         </button>
+        {props.match?.label && (
+          <span className="topbar__round" data-testid="topbar-round">
+            {props.match.label}
+          </span>
+        )}
         <button type="button" className="btn btn--ghost" onClick={() => setShowRules(true)}>
           How to play
         </button>
@@ -228,7 +242,16 @@ export function App(props: AppProps = {}) {
 
       {showRules && <RulesPanel onClose={() => setShowRules(false)} />}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
-      {game.terminal && <GameOver state={game} names={names} onNewGame={() => newGame()} />}
+      {game.terminal && (
+        <GameOver
+          state={game}
+          names={names}
+          match={props.match}
+          onNewGame={() =>
+            props.onRoundEnd ? props.onRoundEnd(returns(game)) : newGame()
+          }
+        />
+      )}
     </div>
   );
 }
