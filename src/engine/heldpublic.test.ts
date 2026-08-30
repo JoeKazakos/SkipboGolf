@@ -17,10 +17,13 @@ describe('heldIsPublic', () => {
     expect(after.held).not.toBeNull();
   });
 
-  it('is false after drawing blind from the pile', () => {
+  it('is true after drawing from the pile, which is turned face up as it is taken', () => {
+    // Section 15.14: the card drawn becomes public, but the rest of the pile
+    // stays unknown, so nobody learns what is coming next.
     const s = createInitialState(11);
     const after = act(s, (a) => a.type === 'draw' && a.source.kind === 'pile');
-    expect(after.heldIsPublic).toBe(false);
+    expect(after.heldIsPublic).toBe(true);
+    expect(after.drawPile.length).toBe(s.drawPile.length - 1);
   });
 
   it('is true after taking another player\'s discard top', () => {
@@ -63,12 +66,24 @@ describe('observationFor heldByCurrent', () => {
     }
   });
 
-  it('hides the rank from others when the draw was blind', () => {
+  it('shows a pile draw to everyone, since it is turned face up when taken', () => {
     const s = createInitialState(7);
     const after = act(s, (a) => a.type === 'draw' && a.source.kind === 'pile');
-    // The drawer sees it.
+    for (let viewer = 0; viewer < after.players.length; viewer++) {
+      expect(observationFor(after, viewer).heldByCurrent?.card?.rank).toBe(after.held?.rank);
+    }
+  });
+
+  it('still hides a card lifted out of a face-down spot', () => {
+    // The one remaining private case: a wave that displaces a hidden card
+    // reveals it to the player who lifted it and to nobody else.
+    let s = createInitialState(33);
+    s = act(s, (a) => a.type === 'draw' && a.source.kind === 'center');
+    const faceDown = s.players[s.current].grid.findIndex((slot) => !slot.faceUp);
+    const after = applyAction(s, { type: 'place', spot: faceDown });
+    expect(after.heldIsPublic).toBe(false);
+
     expect(observationFor(after, after.current).heldByCurrent?.card?.rank).toBe(after.held?.rank);
-    // Nobody else does, but they can tell someone is holding something.
     for (let viewer = 0; viewer < after.players.length; viewer++) {
       if (viewer === after.current) continue;
       const hc = observationFor(after, viewer).heldByCurrent;

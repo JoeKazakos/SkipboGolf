@@ -43,7 +43,7 @@ describe('settings storage', () => {
     );
     const box = screen.getByRole('checkbox', { name: /Explain the final score/ });
     fireEvent.click(box);
-    expect(loadSettings().showScoreBreakdown).toBe(false);
+    expect(loadSettings().showScoreBreakdown).toBe(!DEFAULT_SETTINGS.showScoreBreakdown);
   });
 });
 
@@ -55,8 +55,23 @@ describe('score working on the scorecard', () => {
       </SettingsProvider>,
     );
 
-  it('is shown by default and explains every column', () => {
+  it('is off by default: most people know how to score', () => {
     renderCard();
+    expect(screen.queryByTestId('score-working')).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Show working' }).length).toBeGreaterThan(0);
+  });
+
+  it('can be turned on from the card itself, without opening settings', () => {
+    renderCard();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Show working' })[0]);
+    expect(screen.getAllByTestId('score-working').length).toBeGreaterThan(0);
+    // And the choice sticks, so it is not re-set every round.
+    expect(loadSettings().showScoreBreakdown).toBe(true);
+  });
+
+  it('explains every column once shown', () => {
+    renderCard();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Show working' })[0]);
     const workings = screen.getAllByTestId('score-working');
     expect(workings).toHaveLength(6);
     // Five columns explained per player.
@@ -64,16 +79,20 @@ describe('score working on the scorecard', () => {
     expect(within(workings[0]).getByText(/Total/)).toBeTruthy();
   });
 
-  it('is hidden when the setting is off', () => {
+  it('is shown when the stored setting says so', () => {
     localStorage.setItem(
       'skipbo-golf.settings.v1',
-      JSON.stringify({ ...DEFAULT_SETTINGS, showScoreBreakdown: false }),
+      JSON.stringify({ ...DEFAULT_SETTINGS, showScoreBreakdown: true }),
     );
     renderCard();
-    expect(screen.queryByTestId('score-working')).toBeNull();
+    expect(screen.getAllByTestId('score-working').length).toBeGreaterThan(0);
   });
 
   it('never contradicts the score it is explaining', () => {
+    localStorage.setItem(
+      'skipbo-golf.settings.v1',
+      JSON.stringify({ ...DEFAULT_SETTINGS, showScoreBreakdown: true }),
+    );
     renderCard();
     const rows = screen.getAllByTestId('final-score');
     for (const row of rows) {

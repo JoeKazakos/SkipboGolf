@@ -469,6 +469,24 @@ round wins. Ties are untied, as in section 12.
 This is bookkeeping around the rules rather than part of them, so it lives outside the
 engine (`src/ui/match.ts`). The engine remains a single-round implementation.
 
+### 15.14 A card drawn from the pile is turned face up as it is taken **[RULES CHANGE]**
+
+Section 4 does not say whether the rest of the table sees a card drawn from the face-down
+draw pile. This implementation turns it face up as it is taken, so every draw - centre
+card, discard top or draw pile - is public information the moment it happens.
+
+The pile itself stays face down and unknown. Nobody learns what the NEXT card will be;
+only the card actually drawn becomes known.
+
+Two consequences worth stating:
+
+- Every player, human and computer alike, sees what an opponent picked up and can follow
+  what they do with it. The information is symmetric: the computer players learn the
+  human's draws on exactly the same terms.
+- One case remains private. A card lifted out of a FACE-DOWN spot during a wave is
+  revealed only to the player who lifted it, because nobody else ever saw that card. That
+  card shows as face down in the player's hand.
+
 ## 16. Source of Truth
 
 This document is the canonical how-to-play reference for Skip-Bo Golf. If any later document disagrees with this one, this file should be treated as the game rules to follow.

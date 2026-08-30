@@ -2101,3 +2101,19 @@ button.spot--legal:focus-visible .card {
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
+
+/* A quiet inline toggle, for an option that belongs next to what it affects. */
+.linkbtn {
+  font: inherit;
+  font-size: 0.85rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--felt);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.linkbtn:hover {
+  color: var(--ink);
+}

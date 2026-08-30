@@ -108,8 +108,12 @@ export function describeAction(
         return `${subject} ${verb('take', 'takes')} the centre card (${rank}).`;
       }
       if (src.kind === 'pile') {
-        // The pile is face down, so the rank is private unless it is ours.
-        return `${subject} ${verb('draw', 'draws')} from the draw pile.`;
+        // The pile is face down, but the card taken is turned over as it is
+        // drawn (section 15.14), so its rank is public.
+        const rank = pre.drawPile.length > 0
+          ? rankLabel(pre.drawPile[pre.drawPile.length - 1].rank)
+          : '?';
+        return `${subject} ${verb('draw', 'draws')} the ${rank} from the draw pile.`;
       }
       const pile = pre.players[src.player].discard;
       const top = pile[pile.length - 1];

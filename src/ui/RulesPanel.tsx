@@ -33,7 +33,8 @@ export function RulesPanel({ onClose }: { onClose: () => void }) {
           <ol className="rules__steps">
             <li>
               <strong>Take a card</strong> from the centre card, the face-down draw pile, or
-              the top of another player&rsquo;s discard pile. Never your own.
+              the top of another player&rsquo;s discard pile. Never your own. Whatever you
+              take is turned face up, so everyone sees what you picked up.
             </li>
             <li>
               <strong>Place it</strong> into any spot in your grid, if you want to. Whatever
