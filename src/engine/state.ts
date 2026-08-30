@@ -239,6 +239,22 @@ export function observationFor(s: GameState, viewer: number): Observation {
   };
 }
 
+/**
+ * Whether `player` still has a turn owed in the final cycle.
+ *
+ * `finalTurnsRemaining` counts the turns owed to the WHOLE table, which is the
+ * number the round-end logic needs but not a number any single player cares
+ * about: each player gets exactly one final turn (section 11). Turn order runs
+ * from `current`, so a player is still owed a turn when their seat falls inside
+ * the next `finalTurnsRemaining` seats.
+ */
+export function stillToActInFinalCycle(s: GameState, player: number): boolean {
+  if (s.terminal || s.finalTurnsRemaining == null) return false;
+  const n = s.players.length;
+  const offset = (player - s.current + n) % n;
+  return offset < s.finalTurnsRemaining;
+}
+
 /** Compact key identifying one player's information set, for search transposition. */
 export function informationStateKey(s: GameState, viewer: number): string {
   const obs = observationFor(s, viewer);
