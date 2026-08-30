@@ -1344,6 +1344,9 @@ button.spot--legal:focus-visible .card {
   .speed__btn,
   .details__summary,
   .seat-row__pick select,
+  .player-row select,
+  .player-new,
+  .analysis__spot select,
   .count-btn,
   .preset {
     min-height: 44px;
@@ -1407,8 +1410,17 @@ button.spot--legal:focus-visible .card {
     flex-direction: row;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 14px;
+    /* Wrap rather than overflow: the row gained an Undo button, and at 375px
+       the holding slot, both buttons and the discard pile no longer fit. */
+    flex-wrap: wrap;
+    gap: 10px;
     width: 100%;
+    min-width: 0;
+  }
+
+  .human-side .own-discard,
+  .human-side .held {
+    min-width: 0;
   }
 
   /* Keep the small captions on one line; wrapping "Your discard (0)" over
