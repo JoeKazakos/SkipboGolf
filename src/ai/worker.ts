@@ -28,17 +28,29 @@ export interface AbortRequest {
 export type WorkerRequest = ChooseRequest | AbortRequest;
 
 export type WorkerResponse =
-  | { id: number; ok: true; action: Action }
+  | {
+      id: number;
+      ok: true;
+      action: Action;
+      /**
+       * Visit count and mean outcome of every root action, best first. This is
+       * the search's own reasoning, so an explanation built from it is what the
+       * engine actually computed rather than a story told afterwards.
+       * Empty when only one action was legal and no search was needed.
+       */
+      rootVisits: { key: string; visits: number; mean: number }[];
+      iterations: number;
+    }
   | { id: number; ok: false; error: string };
 
 /** Handles one request. Exported so the in-thread fallback runs identical code. */
 export function handleRequest(request: ChooseRequest, signal?: AbortSignal): WorkerResponse {
   try {
-    const { action } = ismctsSearch(request.state, request.player, {
+    const { action, rootVisits, iterations } = ismctsSearch(request.state, request.player, {
       ...request.options,
       signal,
     });
-    return { id: request.id, ok: true, action };
+    return { id: request.id, ok: true, action, rootVisits, iterations };
   } catch (error) {
     return { id: request.id, ok: false, error: (error as Error).message };
   }
