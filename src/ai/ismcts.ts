@@ -11,12 +11,14 @@ import {
 import type { Action, GameState } from '../engine/types';
 import type { Agent } from './agent';
 import {
+  DEFAULT_EVAL_PARAMS,
   deckRankCounts,
   expectedScore,
   gridView,
   policyPriors,
   rolloutAction,
   turnSearchPriors,
+  type EvalParams,
 } from './heuristic';
 
 /**
@@ -57,6 +59,8 @@ export interface IsmctsOptions {
    * going out. The plain evaluation ignores the race entirely.
    */
   raceAware?: boolean;
+  /** Evaluation parameters; defaults to the hand-set ones. */
+  evalParams?: EvalParams;
 }
 
 const DEFAULTS = {
@@ -193,22 +197,28 @@ function makeNode(playerToAct: number, numPlayers: number): Node {
 }
 
 /** Scores each player's play area as it stands, for a rollout cut short by its turn limit. */
-function estimateScores(s: GameState): number[] {
-  return s.players.map((p) => expectedScore(gridView(p.grid)));
+function estimateScores(s: GameState, params: EvalParams): number[] {
+  return s.players.map((p) => expectedScore(gridView(p.grid), params.hiddenEv, params.pMatch));
 }
 
 /** Hard ceiling on actions in one rollout, purely as a guard against a runaway loop. */
 const ROLLOUT_ACTION_CAP = 4000;
 
 /** Plays the determinized world out under the cheap heuristic policy. */
-function rollout(start: GameState, rng: Rng, turnLimit: number, raceAware: boolean): number[] {
+function rollout(
+  start: GameState,
+  rng: Rng,
+  turnLimit: number,
+  raceAware: boolean,
+  params: EvalParams,
+): number[] {
   let s = start;
   const firstTurn = s.turnCount;
   let steps = 0;
   while (!isTerminal(s)) {
-    if (s.turnCount - firstTurn >= turnLimit) return estimateScores(s);
-    if (steps >= ROLLOUT_ACTION_CAP) return estimateScores(s);
-    s = applyAction(s, rolloutAction(s, rng, raceAware));
+    if (s.turnCount - firstTurn >= turnLimit) return estimateScores(s, params);
+    if (steps >= ROLLOUT_ACTION_CAP) return estimateScores(s, params);
+    s = applyAction(s, rolloutAction(s, rng, raceAware, params));
     steps += 1;
   }
   return returns(s);
@@ -237,6 +247,7 @@ export function ismctsSearch(
   const priorWeight = options.priorWeight ?? DEFAULTS.priorWeight;
   const turnLimit = options.rolloutTurnLimit ?? DEFAULTS.rolloutTurnLimit;
   const raceAware = options.raceAware ?? false;
+  const params = options.evalParams ?? DEFAULT_EVAL_PARAMS;
   const rng = makeRng(options.seed ?? (root.rngState ^ (root.turnCount * 2654435761)) >>> 0);
 
   const rootActions = legalActions(root);
@@ -247,7 +258,7 @@ export function ismctsSearch(
 
   const numPlayers = root.players.length;
   const tree = makeNode(root.current, numPlayers);
-  const rootPriors = turnSearchPriors(root, rootActions, raceAware);
+  const rootPriors = turnSearchPriors(root, rootActions, raceAware, params);
   const deadline = Date.now() + budgetMs;
   let iterations = 0;
 
@@ -319,7 +330,7 @@ export function ismctsSearch(
       if (expanded) break;
     }
 
-    const reward = rewardVector(isTerminal(s) ? returns(s) : rollout(s, rng, turnLimit, raceAware));
+    const reward = rewardVector(isTerminal(s) ? returns(s) : rollout(s, rng, turnLimit, raceAware, params));
     for (const visited of path) {
       visited.visits += 1;
       for (let i = 0; i < numPlayers; i++) visited.totals[i] += reward[i];
