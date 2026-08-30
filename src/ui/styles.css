@@ -1503,3 +1503,19 @@ button.spot--legal:focus-visible .card {
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
+
+/* --------------------------------------------------- opponent's held card */
+.seat__held {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--gold-soft);
+}
+
+.seat__held .mini-label {
+  white-space: nowrap;
+}

@@ -12,6 +12,12 @@ interface Props {
   blurb?: string;
   /** One-word strength label, e.g. "Steady". Exact ratings live in setup. */
   tier?: string;
+  /**
+   * What this opponent is holding right now, as the human may see it.
+   * `null` when they hold nothing; `{ card: null }` when they hold something
+   * drawn blind, whose rank nobody else is entitled to know.
+   */
+  held?: { card: Card | null } | null;
   grid: ObservedGrid;
   discardTop3: readonly Card[];
   discardCount: number;
@@ -29,6 +35,7 @@ export function OpponentSeat({
   name,
   blurb,
   tier,
+  held,
   grid,
   discardTop3,
   discardCount,
@@ -67,6 +74,14 @@ export function OpponentSeat({
         </span>
       </header>
 
+      {held && (
+        <div className="seat__held" data-testid="opponent-held">
+          <span className="mini-label">in hand</span>
+          {/* A null rank renders a back and keeps the rank out of the DOM
+              entirely, which is exactly what a blind pile draw needs. */}
+          <CardFace rank={held.card?.rank ?? null} size="sm" />
+        </div>
+      )}
       <div className="grid grid--sm" role="group" aria-label={`${name}'s ten cards`}>
         {Array.from({ length: GRID_SIZE }, (_, i) => (
           <div key={i} className="spot spot--static" role="img" aria-label={spotName(i)}>

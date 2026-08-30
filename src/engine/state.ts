@@ -31,6 +31,7 @@ export function createInitialState(seed: number, numPlayers = NUM_PLAYERS): Game
     centerCard,
     current: 0,
     held: null,
+    heldIsPublic: false,
     phase: 'draw',
     locked: new Array(GRID_SIZE).fill(false),
     placements: 0,
@@ -150,18 +151,21 @@ export function applyAction(state: GameState, action: Action): GameState {
       if (src.kind === 'center') {
         if (s.centerCard == null) throw new Error('no centre card remains');
         s.held = s.centerCard;
+        s.heldIsPublic = true; // everyone could see the centre card
         s.centerCard = null; // never replaced (section 15.10)
       } else if (src.kind === 'pile') {
         if (s.drawPile.length === 0) reshuffleDiscards(s);
         const card = s.drawPile.pop();
         if (card == null) throw new Error('draw pile is empty and cannot be rebuilt');
         s.held = card;
+        s.heldIsPublic = false; // drawn blind; only the drawer knows it
       } else {
         if (src.player === s.current) throw new Error('cannot draw from your own pile');
         const pile = s.players[src.player].discard;
         const card = pile.pop();
         if (card == null) throw new Error('that discard pile is empty');
         s.held = card;
+        s.heldIsPublic = true; // a discard top is visible to everyone
       }
       s.phase = 'act';
       return s;
@@ -175,9 +179,13 @@ export function applyAction(state: GameState, action: Action): GameState {
       }
       const slot = s.players[s.current].grid[action.spot];
       const displaced = slot.card;
+      // A card lifted out of a face-up spot was on show; one lifted out of a
+      // face-down spot is revealed only to the player who picked it up.
+      const displacedWasVisible = slot.faceUp;
       slot.card = s.held;
       slot.faceUp = true; // every placed card is face up (section 15.4)
       s.held = displaced;
+      s.heldIsPublic = displacedWasVisible;
       s.locked[action.spot] = true;
       s.placements += 1;
       return s;
@@ -216,6 +224,10 @@ export function observationFor(s: GameState, viewer: number): Observation {
     drawPileCount: s.drawPile.length,
     current: s.current,
     held: s.current === viewer ? s.held : null,
+    heldByCurrent:
+      s.held == null
+        ? null
+        : { card: s.current === viewer || s.heldIsPublic ? s.held : null },
     phase: s.phase,
     locked: s.locked,
     placements: s.placements,
@@ -251,6 +263,6 @@ export function knownCards(s: GameState, viewer: number): Card[] {
     known.push(...s.players[p].discard.slice(-3));
   }
   if (s.centerCard) known.push(s.centerCard);
-  if (s.held && s.current === viewer) known.push(s.held);
+  if (s.held && (s.current === viewer || s.heldIsPublic)) known.push(s.held);
   return known;
 }
