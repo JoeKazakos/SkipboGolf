@@ -10,7 +10,11 @@ Delete an entry when it ships or when it is decided against.
 
 | Priority | Item |
 | -------- | ---- |
+| High | Cache search priors at node expansion |
 | Medium | A stronger opponent above Sage |
+| Medium | Learned linear evaluator for the rollout leaf |
+| Medium | Self-play value and policy network |
+| Low | Re-rate the roster after any engine change |
 
 Keep this table in step with the Status lines below when priorities change.
 
@@ -91,6 +95,10 @@ across the whole range from "no idea" to "searches hard".
    perfect-information agent (one that can see the hidden cards) against Sage.
    The gap is an upper bound on what any amount of inference could buy. If it
    is small, stop here.
+4. **A learned evaluator.** Split out into its own entries below - see "Learned
+   linear evaluator for the rollout leaf" and "Self-play value and policy
+   network". Attempt 3 above does not rule this out: it changed leaf value and
+   move ranking together, which confounded the test.
 
 ### Tooling this produced, all committed
 
@@ -119,3 +127,148 @@ across the whole range from "no idea" to "searches hard".
 
 
 
+
+## Cache search priors at node expansion
+
+**Priority: high.** Pure speed, no new machinery, and a prerequisite for both
+entries below.
+
+**What:** `policyPriors` is recomputed at every node on the descent path on
+every single visit ([`src/ai/ismcts.ts`](../src/ai/ismcts.ts), the inner
+`for(;;)` in `ismctsSearch`). Compute the prior once when a node is created and
+store it on the node, the way AlphaZero-style searches do.
+
+**Why:** measured 2026-08-30, per-iteration cost more than doubles as the tree
+deepens, with rollouts disabled so only descent is being timed:
+
+```
+ 100ms:    682 iters -> 147us each
+ 250ms:  1,612 iters -> 155us each
+1000ms:  5,740 iters -> 174us each
+4000ms: 12,521 iters -> 319us each
+```
+
+At 5.4us per `policyPriors` call, a deep path re-derives the same heuristic
+dozens of times per iteration. The waste grows with budget, so it costs Sage
+most.
+
+**Open question, and the reason this needs an arena run rather than just a
+benchmark:** caching changes behaviour slightly. Today the prior is implicitly
+re-averaged across determinizations because it is recomputed in each one; a
+cached prior is fixed from whichever world first expanded the node. That is
+what AlphaZero does and it is expected to be fine, but it is a behaviour change
+and must be shown neutral on the ladder, not assumed.
+
+**Component costs measured at the same time**, for anyone sizing future work.
+Taken with a background arena running, so absolute figures are inflated;
+the ratios are the useful part.
+
+| Call | Cost |
+| ---- | ---- |
+| `legalActions` | 0.2us |
+| `clone` | 1.1us |
+| `applyAction` | 1.3us |
+| `estimateScores` | 2.1us |
+| `policyPriors` | 5.4us |
+| `rolloutAction` | 7.3us |
+| `determinize` | 9.5us |
+
+Note `determinize` is cheap. An earlier guess that it was the bottleneck at
+~185us was wrong; do not spend time optimising it.
+
+---
+
+## Learned linear evaluator for the rollout leaf
+
+**Priority: medium.** The cheap test of the idea behind the entry below.
+
+**What:** replace the two hand-set constants in `expectedScore` with a linear
+model over ~30 hand-built features, fitted against self-play outcomes, used
+**only at the rollout leaf** and not for ranking moves.
+
+**Why this is not a repeat of the failed fit above:** the earlier attempt
+applied fitted values to both jobs at once. `expectedScore` serves two
+conflicting purposes - leaf value, which wants calibration, and move ranking,
+which wants an incentive to improve the position. Fitting both destroyed the
+ranking. `IsmctsOptions.leafParams` now exists to separate them, so the leaf
+can be calibrated while ranking keeps the hand-set values.
+
+**Why the leaf is worth attacking:** rounds run 50-103 turns and
+`rolloutTurnLimit` is 8, so about **86% of rollouts never reach a real score**
+and fall back to the static snapshot. That snapshot prices hidden cards at the
+deck average and models no further play. It is the search's opinion almost all
+of the time.
+
+**Supporting evidence:** raising `rolloutTurnLimit` from 8 to 24 costs roughly
+2.5x the iterations yet still came out ahead on mean score and win rate across
+two independent runs. Better leaf values were worth more than the search they
+cost. (Whether to simply ship 24 is a separate open decision.)
+
+**Useful property already in place:** `estimateScores` evaluates
+`gridView(p.grid)`, which masks face-down cards. The evaluator therefore
+already operates on the *information* state rather than the determinized world,
+so a learned model drops into that slot without learning to read cards it
+should not see.
+
+---
+
+## Self-play value and policy network
+
+**Priority: medium.** The headline attempt at a genuinely stronger opponent.
+Large, but the compute budget is agreed.
+
+**What:** an AlphaZero-shaped network with two heads - a value head replacing
+the rollout, and a policy head replacing `policyPriors` - trained on self-play
+and iterated. ISMCTS stays; the network replaces the two cheap-and-wrong pieces
+inside it.
+
+**Why it should help here, in one number:** Sage at 2000ms runs about **3,884
+iterations**. That is very few for MCTS, and in an imperfect-information game
+those iterations are split between two competing jobs - exploring the move tree
+and averaging over deck randomness. In a probed position with 10 legal moves,
+2,947 of 3,771 visits went to the favoured move, leaving roughly 90 visits for
+each of the other nine, no two from the same determinized deck. Move *ranking*
+therefore rests on very thin samples. A policy head narrows the move list,
+which is the highest-leverage change available; the value head then removes the
+rollout, currently the largest single cost per iteration.
+
+**Compute:** self-play generation is the cost, and it does **not** need the
+browser. `src/engine/` imports nothing outside itself, `npm run arena` is
+`vite-node`, and `scripts/arena-parallel.mjs` already shards across 18 of this
+machine's 20 cores. At the ladder's measured 480 games per 18 minutes, 20 hours
+is roughly 32,000 games, or about 14M sampled states at ~450 per game. Ample
+for a small network. The real cost driver is *iterating* generations; one or
+two probably capture most of the win, because what is being replaced - an
+8-turn heuristic rollout ending in a static snapshot - is weak. Games are
+independent, so this scales across machines if one box is not enough.
+
+**Deployment:** small enough to ship as a 50-200KB weights file and run as
+hand-rolled typed-array matmul in the existing Web Worker. Do not add
+TensorFlow.js; the dependency would cost more than the network.
+
+**Expected payoff, stated honestly:** roughly +100 Elo over Sage, plausible
+range +50 to +150, with maybe a 30% chance it lands under +50. Bounding
+considerations: the ladder already shows sharp diminishing returns (Nel plays
+with no search at all and rates 1585 against Sage's 1733), and this is not
+literally AlphaZero - determinization causes strategy fusion that a value net
+inherits rather than fixes. Note also that in a game this luck-heavy Elo
+compresses, so the visible improvement may be **fewer obviously-bad moves**
+rather than a markedly harder opponent. That was the original complaint.
+
+---
+
+## Re-rate the roster after any engine change
+
+**Priority: low**, but non-optional whenever a tier's play changes.
+
+**What:** `node scripts/arena-parallel.mjs --games 480 --roster`, then update
+the measured `elo`, `eloError`, `meanScore` and `winRate` fields in
+[`src/ai/roster.ts`](../src/ai/roster.ts).
+
+**Why it is listed:** any of the three entries above changes Vin, Ada, Rook and
+Sage at once, and the published Elos are invalid until the ladder re-runs. The
+roster comments record two traps: Vin and Nel are not separable and must not be
+reordered on one run's evidence, and a ~1.8 standard error signal is not a
+result in this game. Budget roughly 20 minutes per 480-game run.
+
+---

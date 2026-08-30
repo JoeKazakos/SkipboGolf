@@ -24,10 +24,17 @@ async function main(): Promise<void> {
   const budgetMs = Number(env.ARENA_BUDGET_MS ?? 120);
   const mode = env.FIT_MODE ?? 'ismcts';
 
-  const make = (name: string, params?: EvalParams): Agent =>
-    mode === 'heuristic'
-      ? createHeuristicAgent(name, false, params)
-      : createIsmctsAgent({ name, budgetMs, seed: 11, evalParams: params });
+  // FIT_TARGET=leaf puts the fitted values only on the leaf estimate, leaving
+  // move ranking on the hand-set ones. That is the split the earlier
+  // experiment failed to make.
+  const target = env.FIT_TARGET ?? 'both';
+  const make = (name: string, params?: EvalParams): Agent => {
+    if (mode === 'heuristic') return createHeuristicAgent(name, false, params);
+    if (params && target === 'leaf') {
+      return createIsmctsAgent({ name, budgetMs, seed: 11, leafParams: params });
+    }
+    return createIsmctsAgent({ name, budgetMs, seed: 11, evalParams: params });
+  };
 
   // Alternating seats so neither side keeps a positional edge.
   const ladder = [
