@@ -23,64 +23,90 @@ Add new preferences there rather than to the top bar.
 
 ## A stronger opponent above Sage
 
-**Status:** attempted 2026-08-30, **not achieved**. **Priority: medium.**
+**Status:** two attempts, **neither worked**. **Priority: medium**, but read the
+findings before spending more on it.
 
 **What:** a roster tier genuinely stronger than Sage.
 
-### What was tried, and the result
+### What has been ruled out, with numbers
 
-Raising the search budget was ruled out by measurement and still is: Ada at
-150ms to Sage at 2000ms buys about 100 Elo, and the top three tiers sit within
-a standard error or two of each other.
+**1. More search.** Ada at 150ms to Sage at 2000ms - thirteen times the
+thinking - buys about 100 Elo, and the top three tiers sit within a standard
+error or two of each other.
 
-So the attempt went at the evaluation instead, which is what the measurements
-point to as the real bound. The clearest gap in `evaluateGrid` is that it only
-ever sees your own grid: it plays identically whether the round has fifty turns
-left or one, even though a tidy hand you never finish is worth nothing.
-`raceFaceUpWeight` scales the value of turning cards face up by how close the
-nearest opponent is to going out, quadratically so late pressure bites hardest.
+**2. Race-awareness in the evaluation** (2026-08-30). Scaling the value of
+turning cards face up by how close an opponent is to going out. Over 560 games
+it rated 1655 +/-36 against Sage's 1684 +/-29, with a worse mean score and win
+rate. Mechanism kept in the code, off by default, tested.
 
-**It did not work.** Over 560 games the race-aware agent, at Sage's own 2000ms
-budget, rated 1655 +/-36 against Sage's 1684 +/-29, with a worse mean score
-(2.91 against 2.31, about one standard error) and a worse win rate (26.5%
-against 30.8%). Not significantly worse - but certainly not better.
+**3. Fitting the evaluation to self-play outcomes** (2026-08-30). This is the
+most informative of the three.
 
-The mechanism survives in the code, off by default and covered by tests
-(`raceaware.test.ts`), including one proving the flag actually changes
-decisions. Turning it on is a one-line change to a profile.
+`expectedScore` predicts a player's final score from a partial grid, so it can
+be regressed against real outcomes. The fit succeeded: held-out prediction
+error fell 79.7%, from 412 to 84. **The fitted agent then played markedly
+worse** - mean score 7.01 against 3.72 over 200 games, about five standard
+errors.
 
-### Why it may have failed, and what to try next
+The reason is worth remembering. The evaluation is not used as a predictor, it
+is used to RANK candidate moves. Fitting it to outcomes under a competent
+policy bakes the value of future good play into the state value: the evaluator
+learns that hidden cards tend to work out, and therefore stops working to make
+them work out. Better calibration, worse ordering.
 
-Worth thinking about before spending another run:
+Optimising the same two parameters for **playing strength** instead reversed
+the direction entirely. The supervised fit wanted HIDDEN_EV near 2.8; a
+strength sweep preferred 11 or more, and every point above 7.0 beat the
+hand-set 4.44 - the best by 6.12 mean score, about eight standard errors.
 
-- **The rollout policy already ends rounds.** ISMCTS rollouts play to a
-  terminal state or a turn limit, so the search may already see the value of
-  going out through the rollout result. Adding a heuristic term for it could be
-  double-counting something the search knows better.
-- **The term is crude.** It scales one weight by the leader's face-up count.
-  It does not consider whether YOU are close to going out, nor whether racing
-  is even winnable from your position - sometimes the right answer to an
-  opponent about to go out is to salvage your score, not to sprint.
-- **Better next levers**, in order:
-  1. **Inference from opponent behaviour.** Determinization samples the unseen
-     cards uniformly and ignores what opponents' choices reveal: someone taking
-     a 9 off a discard pile probably has a use for a 9. This is the standard
-     next step for an ISMCTS agent and fits the `determinize` seam cleanly. It
-     is now cheap to evaluate, since the arena runs 560 games in 30 minutes.
-  2. **Re-tune the search hyperparameters.** `explorationC`, `priorWeight` and
-     `rolloutTurnLimit` were set at low budgets and never revisited at high
-     ones. A parameter sweep is now affordable.
-  3. **A better column model.** `expectedColumnScore` uses fixed constants for
-     the chance a hidden card cancels; these could be derived from the actual
-     unseen multiset the agent already tracks.
+**But that gain does not survive search.** The same tuned values inside ISMCTS
+at 100ms: 1513 +/-24 against 1487 +/-24, mean score 4.50 against 4.30, win rate
+16.5% against 16.8%. Nothing, or very slightly worse.
 
-### A methodological lesson worth keeping
+### What that implies, and it revises an earlier conclusion
 
-The same runs flipped the Vin/Nel ordering: 480 games put Nel ahead by 14 Elo
-with mean scores agreeing at 1.8 standard errors, and 560 games put Vin ahead
-by 37. Both sat inside their error bars. A ~1.8 standard error signal in this
-game is not a result. Require a gap to survive two independent runs before
-acting on it.
+The earlier reading was "search is bounded by evaluation quality". That is too
+simple. The heuristic ALONE improves enormously with better parameters, and
+ISMCTS with the same parameters does not improve at all - because the rollouts
+already discover, by playing the round out, the thing the tuning was teaching:
+that racing to go out is strong. Search is already compensating for that
+particular weakness.
+
+So neither more search NOR this evaluation dimension is the binding constraint
+for the searching agents. That is consistent with the tiers clustering: they
+may simply be near this game's practical ceiling, which a high-luck game caps
+low. Random rates 971 and the best agent 1733 - a spread of about 760 Elo
+across the whole range from "no idea" to "searches hard".
+
+### What is left worth trying
+
+1. **Inference from opponent behaviour.** Still untried, and the one lever the
+   rollouts cannot substitute for: determinization samples the unseen cards
+   uniformly and ignores what opponents' choices reveal. Someone taking a 9 off
+   a discard probably wants 9s. Fits the `determinize` seam cleanly.
+2. **Search hyperparameters** - `explorationC`, `priorWeight`,
+   `rolloutTurnLimit` - set at low budgets and never revisited at high ones.
+   Cheap to sweep now.
+3. **Establish the ceiling before spending more.** A cheap probe: play a
+   perfect-information agent (one that can see the hidden cards) against Sage.
+   The gap is an upper bound on what any amount of inference could buy. If it
+   is small, stop here.
+
+### Tooling this produced, all committed
+
+- `npm run fit` - fit the evaluation to self-play outcomes, with a held-out set.
+- `npm run fit:sweep` - search the parameters for playing strength instead.
+- `npm run fit:arena` - play any candidate parameters against the hand-set ones.
+
+### Methodological lessons
+
+- A ~1.8 standard error signal in this game is not a result: an earlier run put
+  Nel 14 Elo above Vin at that confidence and a later one reversed it.
+- Optimise the objective you care about. Prediction accuracy and move ranking
+  are different objectives, and here they pointed opposite ways.
+- Check a result survives the setting it will ship in. The tuning looked like an
+  eight-standard-error win until it was measured inside the search that
+  actually uses it.
 
 ---
 

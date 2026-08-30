@@ -84,19 +84,24 @@ export function gridView(grid: readonly Slot[]): (Rank | null)[] {
 }
 
 /** Expected score of one column, averaging over any card still face down. */
-function expectedColumnScore(top: Rank | null, bottom: Rank | null): number {
+function expectedColumnScore(
+  top: Rank | null,
+  bottom: Rank | null,
+  hiddenEv = HIDDEN_EV,
+  pMatch = P_MATCH,
+): number {
   if (top != null && bottom != null) {
     if (top === bottom && !SPECIAL_RANKS.has(top)) return 0;
     return cardValue(top) + cardValue(bottom);
   }
   if (top == null && bottom == null) {
     // Two unknowns cancel each other now and then, which is worth a small discount.
-    return 2 * HIDDEN_EV * (1 - P_MATCH);
+    return 2 * hiddenEv * (1 - pMatch);
   }
   const known = (top ?? bottom) as Rank;
   // A special rank never cancels, so it gets no discount - but it also adds nothing.
-  const cancelChance = SPECIAL_RANKS.has(known) ? 0 : P_MATCH;
-  return (1 - cancelChance) * (cardValue(known) + HIDDEN_EV);
+  const cancelChance = SPECIAL_RANKS.has(known) ? 0 : pMatch;
+  return (1 - cancelChance) * (cardValue(known) + hiddenEv);
 }
 
 /** True when all four cells of the 2x2 square starting at `col` are known and identical. */
@@ -162,11 +167,35 @@ function squareTerm(view: GridView, includePartial: boolean): number {
  * still face down. Carries no strategic shaping, so it is directly comparable
  * with `returns()` and is what a cut-short rollout falls back on.
  */
-export function expectedScore(view: GridView): number {
+export function expectedScore(
+  view: GridView,
+  hiddenEv = HIDDEN_EV,
+  pMatch = P_MATCH,
+): number {
   let score = 0;
-  for (let col = 0; col < COLS; col++) score += expectedColumnScore(view[col], view[col + COLS]);
+  for (let col = 0; col < COLS; col++) {
+    score += expectedColumnScore(view[col], view[col + COLS], hiddenEv, pMatch);
+  }
   return score + squareTerm(view, false);
 }
+
+/** The hand-set values, exposed so a fit can be compared against them. */
+export const DEFAULT_HIDDEN_EV = HIDDEN_EV;
+export const DEFAULT_P_MATCH = P_MATCH;
+
+/**
+ * The two uncertain quantities in the evaluation, so an agent can be built on
+ * fitted values instead of the hand-set ones.
+ */
+export interface EvalParams {
+  hiddenEv: number;
+  pMatch: number;
+}
+
+export const DEFAULT_EVAL_PARAMS: EvalParams = {
+  hiddenEv: HIDDEN_EV,
+  pMatch: P_MATCH,
+};
 
 /**
  * The evaluation the agents choose moves by: lower is better, on roughly the
@@ -176,12 +205,18 @@ export function expectedScore(view: GridView): number {
  * turned face up. The face-up term is what makes an agent race for the round-end
  * trigger instead of endlessly polishing a hand nobody will get to see.
  */
-export function evaluateGrid(view: GridView, faceUpWeight = FACE_UP_WEIGHT): number {
+export function evaluateGrid(
+  view: GridView,
+  faceUpWeight = FACE_UP_WEIGHT,
+  params: EvalParams = DEFAULT_EVAL_PARAMS,
+): number {
   let known = 0;
   for (const cell of view) if (cell != null) known += 1;
 
   let score = 0;
-  for (let col = 0; col < COLS; col++) score += expectedColumnScore(view[col], view[col + COLS]);
+  for (let col = 0; col < COLS; col++) {
+    score += expectedColumnScore(view[col], view[col + COLS], params.hiddenEv, params.pMatch);
+  }
   score += squareTerm(view, true);
   score -= faceUpWeight * known;
   if (known === GRID_SIZE) score -= ROUND_END_BONUS;
@@ -237,9 +272,16 @@ interface TurnContext {
   budget: { nodes: number };
   /** Value of a face-up card for this turn; raised when the race is tight. */
   faceUpWeight: number;
+  /** The uncertainty values this agent evaluates with. */
+  params: EvalParams;
 }
 
-function makeTurnContext(s: GameState, nodes: number, raceAware: boolean): TurnContext {
+function makeTurnContext(
+  s: GameState,
+  nodes: number,
+  raceAware: boolean,
+  params: EvalParams,
+): TurnContext {
   const discardCost = new Array<number>(14).fill(0);
   for (let rank = 1; rank <= 13; rank++) discardCost[rank] = discardPenalty(s, rank as Rank);
 
@@ -260,6 +302,7 @@ function makeTurnContext(s: GameState, nodes: number, raceAware: boolean): TurnC
     unknownDiscardCost: weight > 0 ? total / weight : 0,
     budget: { nodes },
     faceUpWeight: raceAware ? raceFaceUpWeight(s) : FACE_UP_WEIGHT,
+    params,
   };
 }
 
@@ -274,7 +317,7 @@ function makeTurnContext(s: GameState, nodes: number, raceAware: boolean): TurnC
  */
 function bestTurnCost(ctx: TurnContext, held: Rank, placements: number): number {
   // Stopping now is always available (section 15.3), so it is the baseline.
-  let best = evaluateGrid(ctx.view, ctx.faceUpWeight) + ctx.discardCost[held];
+  let best = evaluateGrid(ctx.view, ctx.faceUpWeight, ctx.params) + ctx.discardCost[held];
   if (ctx.budget.nodes <= 0) return best;
 
   for (let spot = 0; spot < GRID_SIZE; spot++) {
@@ -305,7 +348,7 @@ function costAfterPlacing(
 
   const value =
     displaced == null
-      ? evaluateGrid(ctx.view, ctx.faceUpWeight) + ctx.unknownDiscardCost
+      ? evaluateGrid(ctx.view, ctx.faceUpWeight, ctx.params) + ctx.unknownDiscardCost
       : bestTurnCost(ctx, displaced, placements + 1);
 
   ctx.view[spot] = displaced;
@@ -326,12 +369,13 @@ export function turnSearchCosts(
   actions: readonly Action[],
   nodes = TURN_SEARCH_NODES,
   raceAware = false,
+  params: EvalParams = DEFAULT_EVAL_PARAMS,
 ): number[] {
-  const ctx = makeTurnContext(s, nodes, raceAware);
+  const ctx = makeTurnContext(s, nodes, raceAware, params);
 
   if (s.phase !== 'draw') {
     const held = (s.held as { rank: Rank }).rank;
-    const stand = evaluateGrid(ctx.view, ctx.faceUpWeight) + ctx.discardCost[held];
+    const stand = evaluateGrid(ctx.view, ctx.faceUpWeight, ctx.params) + ctx.discardCost[held];
     return actions.map((action) => {
       if (action.type !== 'place') return stand;
       ctx.budget.nodes = nodes; // every candidate gets the same allowance
@@ -391,8 +435,9 @@ export function turnSearchPriors(
   s: GameState,
   actions: readonly Action[],
   raceAware = false,
+  params: EvalParams = DEFAULT_EVAL_PARAMS,
 ): number[] {
-  return normalisePriors(turnSearchCosts(s, actions, TURN_SEARCH_NODES, raceAware));
+  return normalisePriors(turnSearchCosts(s, actions, TURN_SEARCH_NODES, raceAware, params));
 }
 
 /** Picks the argmin of a cost vector, preferring the earlier action on a tie. */
@@ -406,18 +451,26 @@ function argmin(actions: readonly Action[], costs: readonly number[]): Action {
  * The strongest move this evaluation can justify, searched over the remainder of
  * the current turn. Exported so ISMCTS and the arena can share it.
  */
-export function heuristicAction(s: GameState, raceAware = false): Action {
+export function heuristicAction(
+  s: GameState,
+  raceAware = false,
+  params: EvalParams = DEFAULT_EVAL_PARAMS,
+): Action {
   const actions = legalActions(s);
   if (actions.length === 0) throw new Error('no legal actions available');
-  return argmin(actions, turnSearchCosts(s, actions, TURN_SEARCH_NODES, raceAware));
+  return argmin(actions, turnSearchCosts(s, actions, TURN_SEARCH_NODES, raceAware, params));
 }
 
 /** Greedy play under `evaluateGrid`, with no tree search. The arena's middle rung. */
-export function createHeuristicAgent(name = 'heuristic', raceAware = false): Agent {
+export function createHeuristicAgent(
+  name = 'heuristic',
+  raceAware = false,
+  params: EvalParams = DEFAULT_EVAL_PARAMS,
+): Agent {
   return {
     name,
     async chooseAction(state) {
-      return heuristicAction(state, raceAware);
+      return heuristicAction(state, raceAware, params);
     },
   };
 }
@@ -518,13 +571,18 @@ export function policyPriors(s: GameState, actions: readonly Action[]): number[]
  * noise. ISMCTS runs this many thousands of times, so the draw is costed from a
  * single sampled rank rather than the full distribution.
  */
-export function rolloutAction(s: GameState, rng: Rng, raceAware = false): Action {
+export function rolloutAction(
+  s: GameState,
+  rng: Rng,
+  raceAware = false,
+  params: EvalParams = DEFAULT_EVAL_PARAMS,
+): Action {
   const actions = legalActions(s);
   if (actions.length === 0) throw new Error('no legal actions available');
   if (rng.next() < ROLLOUT_EPSILON) return actions[Math.floor(rng.next() * actions.length)];
 
   if (s.phase !== 'draw') {
-    return argmin(actions, turnSearchCosts(s, actions, ROLLOUT_TURN_NODES, raceAware));
+    return argmin(actions, turnSearchCosts(s, actions, ROLLOUT_TURN_NODES, raceAware, params));
   }
 
   const view = gridView(s.players[s.current].grid);
