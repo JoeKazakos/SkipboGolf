@@ -147,78 +147,6 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
       {showRules && <RulesPanel onClose={() => setShowRules(false)} />}
       {showHistory && <HistoryPanel onClose={() => setShowHistory(false)} />}
 
-      <section className="setup__section" aria-labelledby="player-heading">
-        <h2 className="setup__heading" id="player-heading">
-          Who is playing
-        </h2>
-        <div className="player-row">
-          <label className="visually-hidden" htmlFor="player-select">
-            Player
-          </label>
-          <select
-            id="player-select"
-            value={active?.id ?? ''}
-            onChange={(e) => choose(e.target.value || null)}
-          >
-            <option value="">Not tracked</option>
-            {store.profiles.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <input
-            className="player-new"
-            type="text"
-            placeholder="Add a player"
-            value={newName}
-            aria-label="New player name"
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && newName.trim()) {
-                add(newName);
-                setNewName('');
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn--ghost"
-            disabled={!newName.trim()}
-            onClick={() => {
-              add(newName);
-              setNewName('');
-            }}
-          >
-            Add
-          </button>
-          {active && (
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => setShowHistory(true)}
-              >
-                Record
-              </button>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={() => remove(active.id)}
-                aria-label={`Delete ${active.name}`}
-              >
-                Delete
-              </button>
-            </>
-          )}
-        </div>
-        <p className="count-note">
-          {active
-            ? `Rounds will be recorded against ${active.name}.`
-            : 'Nobody selected, so rounds will not be recorded.'}
-        </p>
-      </section>
-
       <section className="setup__section" aria-labelledby="count-heading">
         <h2 className="setup__heading" id="count-heading">
           How many opponents
@@ -288,41 +216,121 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
         </div>
       </section>
 
-      <section className="setup__section" aria-labelledby="seats-heading">
-        <h2 className="setup__heading" id="seats-heading">
-          Or set each seat
-        </h2>
-        <ul className="seat-list">
-          {seats.map((profileId, i) => {
-            const profile = profileById(profileId);
-            return (
-              <li className="seat-row" key={i}>
-                <span className="seat-row__index">Seat {i + 1}</span>
-                <label className="seat-row__pick">
-                  <span className="visually-hidden">Opponent in seat {i + 1}</span>
-                  <select
-                    value={profileId}
-                    onChange={(e) => setSeat(i, e.target.value)}
-                    aria-label={`Opponent in seat ${i + 1}`}
-                  >
-                    {ROSTER.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — {p.tier}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <span className="seat-row__blurb">{profile.blurb}</span>
-                <StrengthMeter profile={profile} />
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
       <button type="button" className="btn btn--start" onClick={() => onStart(seats, rounds)}>
         {rounds === 1 ? 'Deal the round' : 'Start the match'}
       </button>
+
+      <details className="setup__more">
+        <summary className="setup__more-summary">Set each seat yourself</summary>
+        <section className="setup__section" aria-labelledby="seats-heading">
+          <h2 className="setup__heading" id="seats-heading">
+            Or set each seat
+          </h2>
+          <ul className="seat-list">
+            {seats.map((profileId, i) => {
+              const profile = profileById(profileId);
+              return (
+                <li className="seat-row" key={i}>
+                  <span className="seat-row__index">Seat {i + 1}</span>
+                  <label className="seat-row__pick">
+                    <span className="visually-hidden">Opponent in seat {i + 1}</span>
+                    <select
+                      value={profileId}
+                      onChange={(e) => setSeat(i, e.target.value)}
+                      aria-label={`Opponent in seat ${i + 1}`}
+                    >
+                      {ROSTER.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {p.tier}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <span className="seat-row__blurb">{profile.blurb}</span>
+                  <StrengthMeter profile={profile} />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+      </details>
+
+      <details className="setup__more">
+        <summary className="setup__more-summary">Track a player&rsquo;s record</summary>
+        <section className="setup__section" aria-labelledby="player-heading">
+          <h2 className="setup__heading" id="player-heading">
+            Who is playing
+          </h2>
+          <div className="player-row">
+            <label className="visually-hidden" htmlFor="player-select">
+              Player
+            </label>
+            <select
+              id="player-select"
+              value={active?.id ?? ''}
+              onChange={(e) => choose(e.target.value || null)}
+            >
+              <option value="">Not tracked</option>
+              {store.profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <input
+              className="player-new"
+              type="text"
+              placeholder="Add a player"
+              value={newName}
+              aria-label="New player name"
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newName.trim()) {
+                  add(newName);
+                  setNewName('');
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn--ghost"
+              disabled={!newName.trim()}
+              onClick={() => {
+                add(newName);
+                setNewName('');
+              }}
+            >
+              Add
+            </button>
+            {active && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => setShowHistory(true)}
+                >
+                  Record
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={() => remove(active.id)}
+                  aria-label={`Delete ${active.name}`}
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+          <p className="count-note">
+            {active
+              ? `Rounds will be recorded against ${active.name}.`
+              : 'Nobody selected, so rounds will not be recorded.'}
+          </p>
+        </section>
+
+      </details>
 
       <RatingDetails />
     </div>
