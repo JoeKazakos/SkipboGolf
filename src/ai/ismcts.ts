@@ -59,8 +59,18 @@ export interface IsmctsOptions {
    * going out. The plain evaluation ignores the race entirely.
    */
   raceAware?: boolean;
-  /** Evaluation parameters; defaults to the hand-set ones. */
+  /** Evaluation parameters used to RANK moves; defaults to the hand-set ones. */
   evalParams?: EvalParams;
+  /**
+   * Evaluation parameters used only for the LEAF VALUE, when a rollout runs
+   * out of turns and falls back to a static score.
+   *
+   * Kept separate because the two jobs want opposite things. Ranking moves
+   * wants an evaluation that rewards improving the position; estimating a leaf
+   * wants an evaluation that is well CALIBRATED to what the position will
+   * actually score. Fitting one number for both made play worse.
+   */
+  leafParams?: EvalParams;
 }
 
 const DEFAULTS = {
@@ -211,13 +221,14 @@ function rollout(
   turnLimit: number,
   raceAware: boolean,
   params: EvalParams,
+  leafParams: EvalParams,
 ): number[] {
   let s = start;
   const firstTurn = s.turnCount;
   let steps = 0;
   while (!isTerminal(s)) {
-    if (s.turnCount - firstTurn >= turnLimit) return estimateScores(s, params);
-    if (steps >= ROLLOUT_ACTION_CAP) return estimateScores(s, params);
+    if (s.turnCount - firstTurn >= turnLimit) return estimateScores(s, leafParams);
+    if (steps >= ROLLOUT_ACTION_CAP) return estimateScores(s, leafParams);
     s = applyAction(s, rolloutAction(s, rng, raceAware, params));
     steps += 1;
   }
@@ -248,6 +259,7 @@ export function ismctsSearch(
   const turnLimit = options.rolloutTurnLimit ?? DEFAULTS.rolloutTurnLimit;
   const raceAware = options.raceAware ?? false;
   const params = options.evalParams ?? DEFAULT_EVAL_PARAMS;
+  const leafParams = options.leafParams ?? params;
   const rng = makeRng(options.seed ?? (root.rngState ^ (root.turnCount * 2654435761)) >>> 0);
 
   const rootActions = legalActions(root);
@@ -330,7 +342,7 @@ export function ismctsSearch(
       if (expanded) break;
     }
 
-    const reward = rewardVector(isTerminal(s) ? returns(s) : rollout(s, rng, turnLimit, raceAware, params));
+    const reward = rewardVector(isTerminal(s) ? returns(s) : rollout(s, rng, turnLimit, raceAware, params, leafParams));
     for (const visited of path) {
       visited.visits += 1;
       for (let i = 0; i < numPlayers; i++) visited.totals[i] += reward[i];
