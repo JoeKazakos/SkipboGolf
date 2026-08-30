@@ -68,6 +68,11 @@ export interface OpponentProfile {
   readonly budgetMs?: number;
   /** Blunder probability, for the blundering tier only. */
   readonly epsilon?: number;
+  /**
+   * Scale the value of turning cards face up by how close an opponent is to
+   * going out. Off for the measured tiers, so their ratings still stand.
+   */
+  readonly raceAware?: boolean;
 }
 
 /**
@@ -81,19 +86,19 @@ export interface OpponentProfile {
  * down, so a weak opponent plays *simply* instead of erratically: it misses
  * good plays rather than making bizarre ones.
  *
- * Two things this measurement settled, both worth knowing before editing:
+ * Two things to know before editing:
  *
- * 1. Vin does NOT beat the plain heuristic. Vin is ISMCTS at 40ms and rates
- *    1571; Nel, which never looks ahead at all, rates 1585. The Elo gap is
- *    inside the error bars, but the mean scores agree with the ordering -
- *    7.09 against 5.71, about 1.8 standard errors apart. At 40ms the search
- *    does not get far enough to improve on the heuristic that drives its own
- *    rollouts; it mostly adds noise. They share a strength band for that
- *    reason, and Vin's blurb no longer claims an advantage it does not have.
+ * 1. Vin and Nel are not separable, and the order between them is arbitrary.
+ *    A 480-game run put Nel ahead by 14 Elo with mean scores agreeing at about
+ *    1.8 standard errors; a later 560-game run reversed BOTH, putting Vin
+ *    ahead by 37. Each result sat inside its error bars, and reading the first
+ *    as a real ordering was over-fitting to noise. They share a strength band
+ *    because they genuinely cannot be told apart; do not reorder them on one
+ *    run's evidence.
  *
- * 2. Search still shows sharply diminishing returns above that. Ada at 150ms
- *    to Sage at 2000ms, a thirteenfold increase, buys about 106 Elo, and Ada
- *    and Rook stay within a standard error of each other.
+ * 2. Search shows sharply diminishing returns at the top. Ada at 150ms to Sage
+ *    at 2000ms, a thirteenfold increase, buys about 100 Elo, and Ada, Rook and
+ *    Sage stay within a standard error or two of each other.
  */
 export const ROSTER: readonly OpponentProfile[] = [
   {
@@ -225,6 +230,7 @@ function buildAgent(profile: OpponentProfile, seed: number): Agent {
         name: profile.name,
         seed,
         budgetMs: profile.budgetMs ?? 150,
+        raceAware: profile.raceAware ?? false,
       });
   }
 }

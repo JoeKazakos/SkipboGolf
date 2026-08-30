@@ -21,6 +21,7 @@ export function createOpponentAgent(profile: OpponentProfile, seed = 20250828): 
     name: profile.name,
     seed,
     budgetMs: profile.budgetMs ?? 150,
+    raceAware: profile.raceAware ?? false,
   });
   return worker.name === profile.name ? worker : { ...worker, name: profile.name };
 }
