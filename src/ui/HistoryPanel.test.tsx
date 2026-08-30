@@ -60,8 +60,31 @@ describe('HistoryPanel', () => {
     expect(value).toMatch(/±\d+/);
   });
 
+  it('keeps the chart axis inside a readable range', () => {
+    // A long, varied record: the axis must sit near the ratings the opponents
+    // actually occupy, not stretch to thousands because of one early fit.
+    seed(Array.from({ length: 30 }, (_, i) => game(i, i % 3 === 0 ? 4 : 25)));
+    show();
+    const chart = screen.getByTestId('rating-chart');
+    const ticks = [...chart.querySelectorAll('.chart__tick')].map((t) =>
+      Number(t.textContent),
+    );
+    for (const tick of ticks) {
+      expect(tick).toBeGreaterThan(0);
+      expect(tick).toBeLessThan(3000);
+    }
+  });
+
+  it('says so rather than drawing nonsense when the fits are still vague', () => {
+    // Two rounds, both won: the fit pegs high with enormous error.
+    seed([game(0, -5), game(1, -5)]);
+    show();
+    expect(screen.queryByTestId('rating-chart')).toBeNull();
+    expect(screen.getByTestId('chart-pending')).toBeTruthy();
+  });
+
   it('draws the uncertainty band, not just a line', () => {
-    seed(Array.from({ length: 6 }, (_, i) => game(i, i % 2 === 0 ? 5 : 30)));
+    seed(Array.from({ length: 30 }, (_, i) => game(i, i % 2 === 0 ? 5 : 30)));
     show();
     const chart = screen.getByTestId('rating-chart');
     expect(chart.querySelector('.chart__band')).toBeTruthy();
@@ -90,5 +113,37 @@ describe('HistoryPanel', () => {
     show();
     expect(screen.getByTestId('history-panel').textContent).toMatch(/Sam's record/);
     expect(screen.getAllByTestId('game-row')).toHaveLength(1);
+  });
+});
+
+describe('when a round was played', () => {
+  it('shows a time alongside the date for every round', () => {
+    seed([game(0, 5), game(1, 12)]);
+    show();
+    const rows = screen.getAllByTestId('game-row');
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      const time = within(row).getByTestId('record-time').textContent ?? '';
+      // A clock time of some locale form, not an empty cell.
+      expect(time).toMatch(/\d/);
+      expect(time).toMatch(/[:.]/);
+    }
+  });
+
+  it('distinguishes two rounds played on the same day', () => {
+    seed([
+      { at: '2026-08-30T09:15:00.000Z', seats: ['nel'], scores: [5, 9] },
+      { at: '2026-08-30T21:40:00.000Z', seats: ['nel'], scores: [7, 9] },
+    ]);
+    show();
+    const times = screen.getAllByTestId('record-time').map((el) => el.textContent);
+    expect(times[0]).not.toBe(times[1]);
+  });
+
+  it('does not crash on a record with an unusable timestamp', () => {
+    seed([{ at: 'not-a-date', seats: ['nel'], scores: [5, 9] }]);
+    show();
+    expect(screen.getAllByTestId('game-row')).toHaveLength(1);
+    expect(screen.getByText('unknown')).toBeTruthy();
   });
 });
