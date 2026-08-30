@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { App } from './App';
 import { TableSetup } from './TableSetup';
 import { SettingsProvider } from './settings';
+import { ProfilesProvider, useProfiles } from './ProfilesContext';
 import { isMatchOver, newMatch, recordRound, roundLabel, type MatchState } from './match';
 import { clearGame, loadGame, saveGame } from './persistence';
 import type { GameState } from '../engine/types';
@@ -33,6 +34,17 @@ function randomSeed(): number {
  * genuinely fresh game rather than a mutated one.
  */
 export function Root() {
+  return (
+    <SettingsProvider>
+      <ProfilesProvider>
+        <Tables />
+      </ProfilesProvider>
+    </SettingsProvider>
+  );
+}
+
+function Tables() {
+  const { record } = useProfiles();
   // A saved game is picked up on first render, so a refresh resumes the round.
   const [table, setTable] = useState<Table | null>(() => {
     const saved = loadGame();
@@ -43,6 +55,12 @@ export function Root() {
   const start = (seats: string[], rounds: number) => {
     clearGame();
     setTable({ seats, seed: randomSeed(), match: newMatch(rounds, seats.length + 1) });
+  };
+
+  /** Records a finished round against whoever is playing, if anyone is. */
+  const recordFinished = (scores: number[]) => {
+    if (table == null) return;
+    record({ at: new Date().toISOString(), seats: [...table.seats], scores: [...scores] });
   };
 
   /** Persists the live position, so a refresh does not lose the round. */
@@ -62,6 +80,7 @@ export function Root() {
 
   /** A round finished: bank it, then deal the next unless the match is done. */
   const finishRound = (scores: number[]) => {
+    recordFinished(scores);
     setTable((prev) => {
       if (prev == null) return prev;
       const banked = recordRound(prev.match, scores);
@@ -80,7 +99,7 @@ export function Root() {
   };
 
   return (
-    <SettingsProvider>
+    <>
       {table === null ? (
         <TableSetup onStart={start} />
       ) : (
@@ -104,9 +123,11 @@ export function Root() {
                   isOver: table.match.played + 1 >= table.match.rounds,
                 }
           }
-          onRoundEnd={table.match.rounds === 1 ? undefined : finishRound}
+          // Always set, so a single round is recorded too. The match prop
+          // above is what decides whether match UI is shown.
+          onRoundEnd={finishRound}
         />
       )}
-    </SettingsProvider>
+    </>
   );
 }

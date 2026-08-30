@@ -1,0 +1,178 @@
+import { useProfiles } from './ProfilesContext';
+import { fitRating, nearestTier, ratingHistory, PROVISIONAL_GAMES } from './rating';
+import { profileById } from '../ai/roster';
+
+/** A short opponent name, tolerating a profile that no longer exists. */
+function seatName(id: string): string {
+  try {
+    return profileById(id).name;
+  } catch {
+    return id;
+  }
+}
+
+/**
+ * Rating over time, with its uncertainty.
+ *
+ * The band matters as much as the line: a rating that moved forty points while
+ * carrying a ninety-point error bar has not really moved, and a bare line would
+ * imply that it had.
+ */
+function RatingChart({ points }: { points: { rating: number; error: number }[] }) {
+  if (points.length < 2) return null;
+
+  const width = 520;
+  const height = 150;
+  const pad = { left: 40, right: 10, top: 10, bottom: 20 };
+
+  const lows = points.map((p) => p.rating - p.error);
+  const highs = points.map((p) => p.rating + p.error);
+  const min = Math.min(...lows);
+  const max = Math.max(...highs);
+  const span = Math.max(1, max - min);
+
+  const x = (i: number) =>
+    pad.left + (i / (points.length - 1)) * (width - pad.left - pad.right);
+  const y = (v: number) =>
+    pad.top + (1 - (v - min) / span) * (height - pad.top - pad.bottom);
+
+  const line = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rating)}`).join(' ');
+  const upper = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(p.rating + p.error)}`);
+  const lower = [];
+  for (let i = points.length - 1; i >= 0; i--) {
+    lower.push(`L${x(i)},${y(points[i].rating - points[i].error)}`);
+  }
+  const band = `${upper.join(' ')} ${lower.join(' ')} Z`;
+
+  return (
+    <svg
+      className="chart"
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label={`Rating over ${points.length} games, currently ${points[points.length - 1].rating} give or take ${points[points.length - 1].error}`}
+      data-testid="rating-chart"
+    >
+      <path className="chart__band" d={band} />
+      <path className="chart__line" d={line} />
+      <text className="chart__tick" x={4} y={y(max) + 4}>
+        {Math.round(max)}
+      </text>
+      <text className="chart__tick" x={4} y={y(min) + 4}>
+        {Math.round(min)}
+      </text>
+    </svg>
+  );
+}
+
+export function HistoryPanel({ onClose }: { onClose: () => void }) {
+  const { active, games } = useProfiles();
+  const current = fitRating(games);
+  const history = ratingHistory(games).filter(
+    (r): r is typeof r & { rating: number; error: number } =>
+      r.rating != null && r.error != null,
+  );
+
+  return (
+    <div
+      className="overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Your record"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="panel-card panel-card--wide" data-testid="history-panel">
+        <h2 className="panel-card__title">{active ? `${active.name}'s record` : 'Your record'}</h2>
+
+        {games.length === 0 ? (
+          <p className="rules__lede">
+            No games recorded yet. Pick or create a player on the setup screen, and finished
+            rounds will be tracked here.
+          </p>
+        ) : (
+          <>
+            <div className="record" data-testid="record-summary">
+              <div className="record__cell">
+                <span className="record__label">Rating</span>
+                {current.rating == null ? (
+                  <strong className="record__value">—</strong>
+                ) : current.provisional ? (
+                  <strong className="record__value" data-testid="rating-value">
+                    ~{nearestTier(current.rating)}
+                    <small> (provisional)</small>
+                  </strong>
+                ) : (
+                  <strong className="record__value" data-testid="rating-value">
+                    {current.rating}
+                    <small> ±{current.error}</small>
+                  </strong>
+                )}
+              </div>
+              <div className="record__cell">
+                <span className="record__label">Rounds</span>
+                <strong className="record__value">{current.games}</strong>
+              </div>
+              <div className="record__cell">
+                <span className="record__label">Comparisons</span>
+                <strong className="record__value">{current.comparisons}</strong>
+              </div>
+            </div>
+
+            {current.provisional && (
+              <p className="record__note">
+                Still settling. A rating is quoted as a number after{' '}
+                {PROVISIONAL_GAMES} rounds; until then it is shown as the opponent you are
+                closest to. A six-player round counts as five comparisons, so this comes
+                round faster than it sounds.
+              </p>
+            )}
+
+            <RatingChart points={history} />
+
+            <h3 className="standings__title">Every round</h3>
+            <ol className="record__list" data-testid="game-list">
+              {games
+                .map((g, i) => ({ g, i }))
+                .reverse()
+                .map(({ g, i }) => {
+                  const mine = g.scores[0];
+                  const place =
+                    g.scores.filter((s) => s < mine).length + 1;
+                  const before = i > 0 ? history[i - 1] : null;
+                  const now = history[i];
+                  const delta =
+                    before && now ? Math.round(now.rating - before.rating) : null;
+                  return (
+                    <li key={i} className="record__row" data-testid="game-row">
+                      <span className="record__date">
+                        {new Date(g.at).toLocaleDateString()}
+                      </span>
+                      <span className="record__vs">
+                        vs {g.seats.map(seatName).join(', ')}
+                      </span>
+                      <span className="record__score">
+                        {mine} · {place}
+                        {place === 1 ? 'st' : place === 2 ? 'nd' : place === 3 ? 'rd' : 'th'}
+                      </span>
+                      <span
+                        className={`record__delta ${
+                          delta == null ? '' : delta < 0 ? 'record__delta--down' : 'record__delta--up'
+                        }`}
+                      >
+                        {delta == null ? '—' : delta > 0 ? `+${delta}` : delta}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ol>
+          </>
+        )}
+
+        <button type="button" className="btn btn--start" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
+  );
+}
