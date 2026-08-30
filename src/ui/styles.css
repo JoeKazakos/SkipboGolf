@@ -1344,6 +1344,7 @@ button.spot--legal:focus-visible .card {
   .speed__btn,
   .details__summary,
   .seat-row__pick select,
+  .setup__more-summary,
   .player-row select,
   .player-new,
   .analysis__spot select,
@@ -2011,4 +2012,60 @@ button.spot--legal:focus-visible .card {
 .analysis__best {
   margin: 0 0 10px;
   font-size: 0.95rem;
+}
+
+/* -------------------------------------------- setup: keep Deal above the fold */
+/*
+ * The primary action must be visible without scrolling. It is placed straight
+ * after the presets, and sticks to the bottom of the viewport until its own
+ * position scrolls into view - so it is reachable at any screen height rather
+ * than depending on the page being short enough.
+ */
+.setup .btn--start {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+/* Everything below the button is secondary: per-seat overrides and player
+   tracking, which most people never touch. */
+.setup__more {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.setup__more-summary {
+  cursor: pointer;
+  padding: 11px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.setup__more .setup__section {
+  margin: 0;
+  padding: 0 14px 14px;
+}
+
+.setup__more .setup__heading {
+  margin-top: 0;
+}
+
+/* A shorter run-in on small screens buys most of the space back. */
+@media (max-height: 720px), (max-width: 500px) {
+  .setup {
+    padding-top: 20px;
+  }
+  .setup__title {
+    font-size: 1.5rem;
+  }
+  .setup__head {
+    margin-bottom: 16px;
+  }
+  .setup__section {
+    margin-bottom: 16px;
+  }
 }
