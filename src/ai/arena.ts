@@ -151,6 +151,27 @@ export interface ArenaReport {
  * Runs `games` rounds with the given agents, rotating seats each round, and
  * summarises the outcome.
  */
+/**
+ * The seed for game `g` of a run. A pure function of the index, so a shard
+ * given a subset of indices reproduces exactly the games a serial run would
+ * have played at those indices.
+ */
+export function gameSeed(baseSeed: number, g: number): number {
+  return baseSeed + g * 104729;
+}
+
+/** Plays the game at index `g`, independently of any other index. */
+export async function playIndexedGame(
+  agents: readonly Agent[],
+  g: number,
+  options: { seed?: number; budgetMs?: number; seatCount?: number } = {},
+): Promise<GameResult> {
+  const seats = seatOrder(agents, g, options.seatCount);
+  const seed = gameSeed(options.seed ?? 1, g);
+  const scores = await playGame(seats, seed, { budgetMs: options.budgetMs });
+  return { seed, seats: seats.map((a) => a.name), scores };
+}
+
 export async function runArena(
   agents: readonly Agent[],
   options: {
@@ -163,17 +184,27 @@ export async function runArena(
   } = {},
 ): Promise<ArenaReport> {
   const games = options.games ?? 100;
-  const baseSeed = options.seed ?? 1;
   const results: GameResult[] = [];
 
   for (let g = 0; g < games; g++) {
-    const seats = seatOrder(agents, g, options.seatCount);
-    const seed = baseSeed + g * 104729;
-    const scores = await playGame(seats, seed, { budgetMs: options.budgetMs });
-    results.push({ seed, seats: seats.map((a) => a.name), scores });
+    results.push(await playIndexedGame(agents, g, options));
     options.onGame?.(g + 1);
   }
 
+  return summarise(results);
+}
+
+/**
+ * Fits ratings and summarises a set of finished games, however they were run.
+ *
+ * Results are sorted by seed first. computeElo walks the record applying
+ * incremental updates, so its output depends on the order it sees games in -
+ * merging the same games in a different order shifted ratings by a few Elo.
+ * Sorting makes the fit a function of the games alone, which is what lets a
+ * parallel run be compared with a serial one.
+ */
+export function summarise(input: readonly GameResult[]): ArenaReport {
+  const results = [...input].sort((a, b) => a.seed - b.seed);
   const elo = computeElo(results);
   const errors = bootstrapEloError(results);
 
@@ -208,7 +239,7 @@ export async function runArena(
     })
     .sort((a, b) => b.elo - a.elo);
 
-  return { games, results, summaries };
+  return { games: results.length, results: [...results], summaries };
 }
 
 /** Renders the report as a fixed-width table. */
