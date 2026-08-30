@@ -137,6 +137,7 @@ export function App(props: AppProps = {}) {
                 name={names[i] ?? `Player ${i + 1}`}
                 blurb={seatProfiles[i - 1]?.blurb}
                 tier={seatProfiles[i - 1]?.tier}
+                held={game.current === i && !game.terminal ? obs.heldByCurrent : null}
                 grid={p.grid}
                 discardTop3={p.discardTop3}
                 discardCount={p.discardCount}

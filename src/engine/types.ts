@@ -32,6 +32,15 @@ export interface GameState {
   current: number;
   /** The card in hand during the 'act' phase. */
   held: Card | null;
+  /**
+   * Whether everyone saw where the held card came from, and so knows its rank.
+   *
+   * True for a card taken from the centre or from a visible discard top, and
+   * for a card displaced out of a face-up spot. False for a card drawn blind
+   * from the pile, or displaced out of a face-down spot - those are known only
+   * to the player holding them.
+   */
+  heldIsPublic: boolean;
   phase: Phase;
   /** Per-turn: a spot may be placed into at most once (section 15.1). */
   locked: boolean[];
@@ -58,6 +67,12 @@ export interface Observation {
   drawPileCount: number;
   current: number;
   held: Card | null;
+  /**
+   * What the player to move is holding, as this viewer is entitled to see it.
+   * `null` when nobody is holding anything; `{ card: null }` when they hold
+   * something whose rank this viewer does not know.
+   */
+  heldByCurrent: { card: Card | null } | null;
   phase: Phase;
   locked: boolean[];
   placements: number;
