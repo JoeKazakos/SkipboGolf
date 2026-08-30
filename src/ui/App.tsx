@@ -6,7 +6,7 @@ import { GameOver } from './GameOver';
 import { HumanArea } from './HumanArea';
 import { OpponentSeat } from './OpponentSeat';
 import { HUMAN, playerName } from './format';
-import { DEFAULT_PRESET_ID, presetById, profileById } from '../ai/roster';
+import { DEFAULT_OPPONENTS, DEFAULT_PRESET_ID, presetSeats, profileById } from '../ai/roster';
 import { DEFAULT_AI_DELAY_MS, useGame, type UseGameOptions } from './useGame';
 import { SettingsPanel } from './settings';
 import { RulesPanel } from './RulesPanel';
@@ -72,7 +72,9 @@ export function App(props: AppProps = {}) {
     () =>
       props.agent
         ? []
-        : (props.seats ?? presetById(DEFAULT_PRESET_ID).seats).map((id) => profileById(id)),
+        : (props.seats ?? presetSeats(DEFAULT_PRESET_ID, DEFAULT_OPPONENTS)).map((id) =>
+            profileById(id),
+          ),
     [props.agent, props.seats],
   );
 
