@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RulesPanel } from './RulesPanel';
 import {
   DEFAULT_OPPONENTS,
   DEFAULT_PRESET_ID,
@@ -97,6 +98,7 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
     initialSeats ? [...initialSeats] : presetSeats(DEFAULT_PRESET_ID, DEFAULT_OPPONENTS),
   );
   const [presetId, setPresetId] = useState<string | null>(DEFAULT_PRESET_ID);
+  const [showRules, setShowRules] = useState(false);
 
   const applyPreset = (id: string) => {
     setPresetId(id);
@@ -130,7 +132,12 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
       <header className="setup__head">
         <h1 className="setup__title">Skip-Bo Golf</h1>
         <p className="setup__sub">Choose who you are playing against.</p>
+        <button type="button" className="btn btn--ghost" onClick={() => setShowRules(true)}>
+          How to play
+        </button>
       </header>
+
+      {showRules && <RulesPanel onClose={() => setShowRules(false)} />}
 
       <section className="setup__section" aria-labelledby="count-heading">
         <h2 className="setup__heading" id="count-heading">

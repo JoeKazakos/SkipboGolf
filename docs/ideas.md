@@ -12,7 +12,6 @@ Delete an entry when it ships or when it is decided against.
 | -------- | ---- |
 | Medium | Rate the human player |
 | Medium | A stronger opponent above Sage |
-| Medium | An in-app rules reference |
 | Medium | Revisit the multi-round match |
 | Low | Survive a page refresh |
 | Low | Animate cards moving |
@@ -327,29 +326,6 @@ only record of it.
 ---
 
 
-## An in-app rules reference
-
-**Status:** wanted, not started. **Priority: medium.** Raised 2026-08-29.
-
-**What:** somewhere in the app to look up how the game works, above all the
-wave rule.
-
-**Why:** the wave is the hard part of Skip-Bo Golf and there is nowhere in the
-app that explains it. `game-description.md` is the canonical reference but is
-not surfaced anywhere.
-
-### Notes
-
-- The full rules document is long and includes a clarifications section aimed
-  at implementers. A player wants a short version: the turn structure, the wave
-  rule with a worked example, and how scoring works.
-- Section 15.11 already states the turn structure precisely and reads well as
-  player-facing text.
-- Keep one source of truth. Either render from the markdown, or keep the short
-  version short enough that drift is obvious, and note in
-  `game-description.md` that it exists.
-
----
 
 ## Revisit the multi-round match
 
