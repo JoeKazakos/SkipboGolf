@@ -2069,3 +2069,28 @@ button.spot--legal:focus-visible .card {
     margin-bottom: 16px;
   }
 }
+
+/* -------------------------------------------- optional record-keeping group */
+.setting-group {
+  margin: 4px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.setting-group__summary {
+  cursor: pointer;
+  padding: 11px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.setting-group__body {
+  padding: 0 12px 12px;
+}
+
+.setting-group__note {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}

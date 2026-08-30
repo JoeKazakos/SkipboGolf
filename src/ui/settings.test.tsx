@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { GameOver } from './GameOver';
 import { SettingsPanel, SettingsProvider, DEFAULT_SETTINGS, loadSettings } from './settings';
+import { ProfilesProvider } from './ProfilesContext';
 import { applyAction, createInitialState, isTerminal, legalActions } from '../engine/state';
 import type { GameState } from '../engine/types';
 
@@ -35,7 +36,9 @@ describe('settings storage', () => {
   it('persists a change', () => {
     render(
       <SettingsProvider>
-        <SettingsPanel onClose={() => {}} />
+        <ProfilesProvider>
+          <SettingsPanel onClose={() => {}} />
+        </ProfilesProvider>
       </SettingsProvider>,
     );
     const box = screen.getByRole('checkbox', { name: /Explain the final score/ });
@@ -82,5 +85,40 @@ describe('score working on the scorecard', () => {
       expect(m, `no total found in: ${text}`).toBeTruthy();
       expect(Number(m![1])).toBe(awarded);
     }
+  });
+});
+
+describe('player record placement', () => {
+  const renderPanel = () =>
+    render(
+      <SettingsProvider>
+        <ProfilesProvider>
+          <SettingsPanel onClose={() => {}} />
+        </ProfilesProvider>
+      </SettingsProvider>,
+    );
+
+  it('lives in settings, collapsed, rather than in the way', () => {
+    renderPanel();
+    const group = screen.getByTestId('player-record');
+    expect(group.tagName.toLowerCase()).toBe('details');
+    // Closed by default: it is opt-in, not a step in starting a game.
+    expect((group as HTMLDetailsElement).open).toBe(false);
+  });
+
+  it('still lets a player be added and selected', async () => {
+    renderPanel();
+    fireEvent.click(screen.getByText('Track your record'));
+    fireEvent.change(screen.getByLabelText('New player name'), { target: { value: 'Joe' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    const select = screen.getByLabelText('Player') as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toContain('Joe');
+  });
+
+  it('records nothing while nobody is selected', () => {
+    renderPanel();
+    fireEvent.click(screen.getByText('Track your record'));
+    const select = screen.getByLabelText('Player') as HTMLSelectElement;
+    expect(select.value).toBe('');
   });
 });

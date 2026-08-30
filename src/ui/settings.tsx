@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useProfiles } from './ProfilesContext';
+import { HistoryPanel } from './HistoryPanel';
 import type { ReactNode } from 'react';
 
 /**
@@ -93,6 +95,85 @@ export function useSettings(): SettingsContextValue {
   return useContext(SettingsContext);
 }
 
+/**
+ * Optional record-keeping.
+ *
+ * It lives here rather than in the setup flow deliberately. Nobody wants to
+ * name themselves before their first game; this is something you go looking
+ * for once you have played a few and want to know whether you are improving.
+ */
+function PlayerRecord() {
+  const { store, active, add, choose, remove } = useProfiles();
+  const [newName, setNewName] = useState('');
+  const [showHistory, setShowHistory] = useState(false);
+
+  const submit = () => {
+    if (!newName.trim()) return;
+    add(newName);
+    setNewName('');
+  };
+
+  return (
+    <details className="setting-group" data-testid="player-record">
+      <summary className="setting-group__summary">Track your record</summary>
+      <div className="setting-group__body">
+        <p className="setting-group__note">
+          Optional. Give yourself a name and finished rounds are recorded against it, with
+          a rating measured on the same scale as the opponents. Nothing is recorded while
+          nobody is selected.
+        </p>
+        <div className="player-row">
+          <label className="visually-hidden" htmlFor="player-select">
+            Player
+          </label>
+          <select
+            id="player-select"
+            value={active?.id ?? ''}
+            onChange={(e) => choose(e.target.value || null)}
+          >
+            <option value="">Not tracked</option>
+            {store.profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <input
+            className="player-new"
+            type="text"
+            placeholder="Add a player"
+            value={newName}
+            aria-label="New player name"
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submit();
+            }}
+          />
+          <button type="button" className="btn btn--ghost" disabled={!newName.trim()} onClick={submit}>
+            Add
+          </button>
+          {active && (
+            <>
+              <button type="button" className="btn btn--ghost" onClick={() => setShowHistory(true)}>
+                Record
+              </button>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => remove(active.id)}
+                aria-label={`Delete ${active.name}`}
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      {showHistory && <HistoryPanel onClose={() => setShowHistory(false)} />}
+    </details>
+  );
+}
+
 /** The settings panel itself, shown as a dialog from the top bar. */
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const { settings, set } = useSettings();
@@ -133,6 +214,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             <small>Move cards between the piles and the grid instead of jumping.</small>
           </span>
         </label>
+
+        <PlayerRecord />
 
         <button type="button" className="btn btn--start" onClick={onClose}>
           Done
