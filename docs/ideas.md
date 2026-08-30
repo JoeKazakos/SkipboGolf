@@ -12,7 +12,6 @@ Delete an entry when it ships or when it is decided against.
 | -------- | ---- |
 | Medium | Rate the human player |
 | Medium | A stronger opponent above Sage |
-| Low | Survive a page refresh |
 | Low | Animate cards moving |
 | Low | Tighten the error bars on the CPU ratings |
 | Low | Position setup and analysis mode |
@@ -279,28 +278,6 @@ search until the position is consistent. Budget the effort there.
 
 
 
-## Survive a page refresh
-
-**Status:** wanted, not started. **Priority: low.** Raised 2026-08-29.
-
-**What:** reload the page mid-round and still be in the same game.
-
-**Why:** there is no persistence of any kind today, so a refresh, an
-accidental back gesture or a phone reclaiming the tab loses the round outright.
-
-### Notes
-
-- `GameState` is plain data - cards are `{ rank, id }`, `rngState` is a number -
-  so it serialises to JSON as-is. No custom encoder needed.
-- Persist the seating alongside it, or the restored game has opponents that do
-  not match the seats.
-- Version the stored blob. The shape has already changed once this project
-  (seat names became data), and restoring an old blob into new code should be
-  discarded rather than crash.
-- Distinct from "Rate the human player": that stores finished games, this
-  stores the one in progress.
-
----
 
 ## Animate cards moving
 

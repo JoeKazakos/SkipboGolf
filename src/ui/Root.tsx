@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { App } from './App';
 import { TableSetup } from './TableSetup';
 import { SettingsProvider } from './settings';
 import { isMatchOver, newMatch, recordRound, roundLabel, type MatchState } from './match';
+import { clearGame, loadGame, saveGame } from './persistence';
+import type { GameState } from '../engine/types';
 
 interface Table {
   seats: string[];
+  /** A position restored from storage, resumed instead of dealt afresh. */
+  resume?: GameState;
   /**
    * Seed for the deal. Chosen here rather than left to useGame's default,
    * which is a fixed 1 - without this every fresh load dealt the identical
@@ -29,22 +33,49 @@ function randomSeed(): number {
  * genuinely fresh game rather than a mutated one.
  */
 export function Root() {
-  const [table, setTable] = useState<Table | null>(null);
+  // A saved game is picked up on first render, so a refresh resumes the round.
+  const [table, setTable] = useState<Table | null>(() => {
+    const saved = loadGame();
+    if (!saved) return null;
+    return { seats: saved.seats, seed: saved.seed, match: saved.match, resume: saved.game };
+  });
 
   const start = (seats: string[], rounds: number) => {
+    clearGame();
     setTable({ seats, seed: randomSeed(), match: newMatch(rounds, seats.length + 1) });
   };
+
+  /** Persists the live position, so a refresh does not lose the round. */
+  const persist = useCallback(
+    (game: GameState) => {
+      if (table == null) return;
+      if (game.terminal) {
+        // A finished round is not worth resuming into; the scorecard is
+        // already shown and the next action deals afresh.
+        clearGame();
+        return;
+      }
+      saveGame({ seats: table.seats, seed: table.seed, game, match: table.match });
+    },
+    [table],
+  );
 
   /** A round finished: bank it, then deal the next unless the match is done. */
   const finishRound = (scores: number[]) => {
     setTable((prev) => {
       if (prev == null) return prev;
       const banked = recordRound(prev.match, scores);
+      clearGame();
       if (isMatchOver(banked)) {
         // The match is complete; start a fresh one on the same table.
-        return { ...prev, seed: randomSeed(), match: newMatch(prev.match.rounds, scores.length) };
+        return {
+          ...prev,
+          seed: randomSeed(),
+          resume: undefined,
+          match: newMatch(prev.match.rounds, scores.length),
+        };
       }
-      return { ...prev, seed: randomSeed(), match: banked };
+      return { ...prev, seed: randomSeed(), resume: undefined, match: banked };
     });
   };
 
@@ -57,7 +88,12 @@ export function Root() {
           key={`${table.seed}-${table.match.played}-${table.seats.join('-')}`}
           seats={table.seats}
           seed={table.seed}
-          onChangeTable={() => setTable(null)}
+          initialState={table.resume}
+          onStateChange={persist}
+          onChangeTable={() => {
+            clearGame();
+            setTable(null);
+          }}
           match={
             table.match.rounds === 1
               ? undefined
