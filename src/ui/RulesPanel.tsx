@@ -32,7 +32,7 @@ export function RulesPanel({ onClose }: { onClose: () => void }) {
           <h3>Your turn</h3>
           <ol className="rules__steps">
             <li>
-              <strong>Take a card</strong> from the centre card, the face-down draw pile, or
+              <strong>Take a card</strong> from the center card, the face-down draw pile, or
               the top of another player&rsquo;s discard pile. Never your own. Whatever you
               take is turned face up, so everyone sees what you picked up.
             </li>

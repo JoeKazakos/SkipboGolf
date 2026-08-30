@@ -15,7 +15,7 @@ describe('variable player count', () => {
       const s = createInitialState(4242 + n, n);
       expect(s.players).toHaveLength(n);
       for (const p of s.players) expect(p.grid).toHaveLength(GRID_SIZE);
-      // Every card is accounted for: grids, the centre card and the draw pile.
+      // Every card is accounted for: grids, the center card and the draw pile.
       const dealt = n * GRID_SIZE + (s.centerCard ? 1 : 0) + s.drawPile.length;
       expect(dealt).toBe(DECK_SIZE);
     });

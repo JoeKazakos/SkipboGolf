@@ -216,7 +216,7 @@ export function App(props: AppProps = {}) {
           )}
         </div>
 
-        <div className="centre">
+        <div className="center">
           <DrawSources
             centerCard={obs.centerCard}
             drawPileCount={obs.drawPileCount}

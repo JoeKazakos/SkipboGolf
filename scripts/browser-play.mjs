@@ -63,12 +63,12 @@ while (Date.now() < deadline) {
   }
 
   // Is it the human's turn with something to do?
-  const centre = page.locator('button[aria-label^="Draw the centre card"]:not([disabled])');
+  const center = page.locator('button[aria-label^="Draw the center card"]:not([disabled])');
   const pile = page.locator('button[aria-label^="Draw from the face-down"]:not([disabled])');
   const discard = page.getByRole('button', { name: /Discard & end turn/i });
 
-  if (await pile.count() > 0 || await centre.count() > 0) {
-    if (await centre.count() > 0) { await centre.first().click(); note('human: took centre card'); }
+  if (await pile.count() > 0 || await center.count() > 0) {
+    if (await center.count() > 0) { await center.first().click(); note('human: took center card'); }
     else { await pile.first().click(); note('human: drew from pile'); }
     await page.waitForTimeout(120);
 

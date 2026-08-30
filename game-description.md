@@ -186,7 +186,7 @@ Row 2: [ 12 ] [ ? ] [ 7 ] [ ? ] [ 1 ]
 Visible: the 3 at row 1 column 2, the 8 at row 1 column 4, the 12 at row 2 column 1,
 the 7 at row 2 column 3, and the 1 at row 2 column 5.
 
-You draw an 8 from the centre.
+You draw an 8 from the center.
 
 Step 1. You place the 8 into row 2, column 4, directly opposite the visible 8.
 The face-down card there is revealed to be a 1 and becomes your held card.
@@ -420,10 +420,10 @@ card of their own discard pile. This guarantees that a legal draw source always 
 Section 10's phrase "the active discard pile" is loose wording. Six players have six discard
 piles, one each.
 
-### 15.10 The centre card remains available until taken
+### 15.10 The center card remains available until taken
 
-The face-up centre card is a legal draw source for any player on any turn until somebody
-takes it. Once taken it is never replaced and there is no centre card for the rest of the
+The face-up center card is a legal draw source for any player on any turn until somebody
+takes it. Once taken it is never replaced and there is no center card for the rest of the
 round.
 
 ### 15.11 Turn structure, stated precisely
@@ -472,7 +472,7 @@ engine (`src/ui/match.ts`). The engine remains a single-round implementation.
 ### 15.14 A card drawn from the pile is turned face up as it is taken **[RULES CHANGE]**
 
 Section 4 does not say whether the rest of the table sees a card drawn from the face-down
-draw pile. This implementation turns it face up as it is taken, so every draw - centre
+draw pile. This implementation turns it face up as it is taken, so every draw - center
 card, discard top or draw pile - is public information the moment it happens.
 
 The pile itself stays face down and unknown. Nobody learns what the NEXT card will be;
@@ -486,6 +486,21 @@ Two consequences worth stating:
 - One case remains private. A card lifted out of a FACE-DOWN spot during a wave is
   revealed only to the player who lifted it, because nobody else ever saw that card. That
   card shows as face down in the player's hand.
+
+### 15.15 A placement that changes nothing is not offered **[RULES CHANGE]**
+
+Placing the held card into a spot that already shows that same rank face up leaves the
+play area exactly as it was, and hands back a card of the rank just played. Nothing about
+the position changes; the only effect is that the spot is locked for the rest of the turn,
+which loses an option.
+
+Such a placement is therefore not a legal move, for the first placement of a turn or for
+any wave after it. This removes nothing a player could want: any line of play that used
+one is strictly worse than the same line without it.
+
+It also matters in practice. Before this rule, the search picked one of these do-nothing
+waves in roughly thirty per cent of the positions where it was available, which is how it
+came to recommend moves that plainly accomplished nothing.
 
 ## 16. Source of Truth
 

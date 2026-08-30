@@ -27,7 +27,7 @@ export type Phase = 'draw' | 'act';
 export interface GameState {
   players: PlayerState[];
   drawPile: Card[];
-  /** The face-up centre card; null once taken. Never replaced. */
+  /** The face-up center card; null once taken. Never replaced. */
   centerCard: Card | null;
   current: number;
   /** The card in hand during the 'act' phase. */
@@ -35,7 +35,7 @@ export interface GameState {
   /**
    * Whether everyone knows the rank of the held card.
    *
-   * True for every draw - the centre card, a discard top, and a card taken
+   * True for every draw - the center card, a discard top, and a card taken
    * from the face-down pile, which is turned face up as it is taken
    * (section 15.14) - and for a card displaced out of a face-up spot.
    *

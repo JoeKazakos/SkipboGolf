@@ -13,7 +13,7 @@ describe('computeElo', () => {
     }
     const elo = computeElo(results);
     expect(elo.get('strong')).toBeGreaterThan(elo.get('weak') as number);
-    // Ratings are recentred, so the pair straddles 1500.
+    // Ratings are recenterd, so the pair straddles 1500.
     expect(((elo.get('strong') as number) + (elo.get('weak') as number)) / 2).toBeCloseTo(1500, 6);
   });
 

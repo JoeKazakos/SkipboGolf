@@ -198,7 +198,7 @@ describe('unseenRankCounts', () => {
       expect(counts[rank]).toBeGreaterThanOrEqual(0);
       unseen += counts[rank];
     }
-    // 18 face-up grid cards plus the centre card are visible at the deal.
+    // 18 face-up grid cards plus the center card are visible at the deal.
     expect(unseen).toBe(162 - 19);
   });
 });

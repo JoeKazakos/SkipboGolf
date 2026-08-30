@@ -38,7 +38,7 @@ describe('undo', () => {
 
     const gridBefore = humanGrid();
 
-    fireEvent.click(screen.getByLabelText(/^Draw the centre card/));
+    fireEvent.click(screen.getByLabelText(/^Draw the center card/));
     await waitFor(() => expect(undoBtn().disabled).toBe(false));
     fireEvent.click(screen.getAllByRole('button', { name: /play here/ })[0]);
 
@@ -58,7 +58,7 @@ describe('undo', () => {
     const logText = () => screen.getByTestId('action-log').textContent ?? '';
     const before = logText();
 
-    fireEvent.click(screen.getByLabelText(/^Draw the centre card/));
+    fireEvent.click(screen.getByLabelText(/^Draw the center card/));
     await waitFor(() => expect(logText()).not.toBe(before));
 
     fireEvent.click(undoBtn());
@@ -67,7 +67,7 @@ describe('undo', () => {
 
   it('is no longer offered once the turn has been committed by discarding', async () => {
     render(<App initialState={humanToPlay()} agent={idleAgent} aiDelayMs={0} />);
-    fireEvent.click(screen.getByLabelText(/^Draw the centre card/));
+    fireEvent.click(screen.getByLabelText(/^Draw the center card/));
     await waitFor(() => expect(undoBtn().disabled).toBe(false));
     fireEvent.click(discardBtn());
     // The turn has passed to an opponent, so there is nothing to take back.
@@ -77,12 +77,12 @@ describe('undo', () => {
   it('leaves the engine in a state that still accepts legal play', async () => {
     const start = humanToPlay();
     render(<App initialState={start} agent={idleAgent} aiDelayMs={0} />);
-    fireEvent.click(screen.getByLabelText(/^Draw the centre card/));
+    fireEvent.click(screen.getByLabelText(/^Draw the center card/));
     await waitFor(() => expect(undoBtn().disabled).toBe(false));
     fireEvent.click(undoBtn());
     // Drawing again must work: the restored position is a real position.
-    await waitFor(() => expect((screen.getByLabelText(/^Draw the centre card/) as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.click(screen.getByLabelText(/^Draw the centre card/));
+    await waitFor(() => expect((screen.getByLabelText(/^Draw the center card/) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByLabelText(/^Draw the center card/));
     await waitFor(() => expect(undoBtn().disabled).toBe(false));
   });
 });
