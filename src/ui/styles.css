@@ -212,7 +212,11 @@ body {
   display: grid;
   /* Driven by the real number of seats, set inline by App, so a table of two
      or of six lays out correctly rather than assuming five. */
-  grid-template-columns: repeat(var(--seat-count, 5), minmax(0, 1fr));
+  /* Capped, not stretched. A seat only needs enough room for five small cards;
+     letting it take a fifth of the table when there is one opponent spread its
+     cards across a thousand pixels with the discard stranded in the middle. */
+  grid-template-columns: repeat(var(--seat-count, 5), minmax(0, 230px));
+  justify-content: center;
   gap: 10px;
 }
 
@@ -318,7 +322,11 @@ body {
 
 .grid--sm .card--sm {
   width: 100%;
-  max-width: 32px;
+  /* Sized to fill a capped seat rather than sit at the old fixed 32px, so a
+     table with one or two opponents shows bigger cards instead of wide gaps.
+     At five or six seats the column is already narrower than this and the
+     fluid width takes over, so nothing changes there. */
+  max-width: 38px;
   height: auto;
   aspect-ratio: 32 / 45;
 }
