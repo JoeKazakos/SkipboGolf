@@ -64,7 +64,12 @@ function freshState(game: GameState, names: SeatNames): UiState {
       {
         id: 0,
         player: -1,
-        text: `New round dealt. ${playerName(game.current, names)} to play.`,
+        // A resumed game starts mid-round, so do not claim it was just dealt.
+        // The log itself is commentary rather than game state and is not saved.
+        text:
+          game.turnCount > 0
+            ? `Resumed your saved round. ${playerName(game.current, names)} to play.`
+            : `New round dealt. ${playerName(game.current, names)} to play.`,
         kind: 'event',
       },
     ],

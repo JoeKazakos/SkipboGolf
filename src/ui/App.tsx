@@ -11,6 +11,8 @@ import { DEFAULT_AI_DELAY_MS, useGame, type UseGameOptions } from './useGame';
 import { SettingsPanel } from './settings';
 import { RulesPanel } from './RulesPanel';
 import { returns } from '../engine/state';
+import type { GameState } from '../engine/types';
+import { useEffect } from 'react';
 import './styles.css';
 
 const SPEEDS = [
@@ -30,6 +32,8 @@ export interface AppProps extends UseGameOptions {
   };
   /** Called with this round's scores when the caller drives the next round. */
   onRoundEnd?: (scores: number[]) => void;
+  /** Called whenever the position changes, so the caller can persist it. */
+  onStateChange?: (game: GameState) => void;
 }
 
 export function App(props: AppProps = {}) {
@@ -54,6 +58,11 @@ export function App(props: AppProps = {}) {
     requestHint,
     clearHint,
   } = useGame({ ...props, aiDelayMs: Math.round(baseDelay * speed) });
+
+  const { onStateChange } = props;
+  useEffect(() => {
+    onStateChange?.(game);
+  }, [game, onStateChange]);
 
   // Profiles for the five opponent seats, so each seat can show its rating.
   // An injected agent (tests) means no roster seating, hence the empty list.
