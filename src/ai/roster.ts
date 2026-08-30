@@ -9,8 +9,8 @@ import { createIsmctsAgent } from './ismcts';
  * Wraps an agent so it plays a uniformly random legal action `epsilon` of the
  * time.
  *
- * This exists only to fill the very wide gap between random play (around 980
- * Elo) and the bare heuristic (around 1700). Without it the roster would jump
+ * This exists only to fill the very wide gap between random play (around 970
+ * Elo) and the bare heuristic (around 1585). Without it the roster would jump
  * straight from "makes no sense at all" to "competent", with nothing in
  * between for a new player to practise against. It is deliberately NOT used
  * above the heuristic tier: a strong search that occasionally throws the game
@@ -52,10 +52,10 @@ export interface OpponentProfile {
   /**
    * Coarse strength shown to the player, 1 (weakest) to 5 (strongest).
    *
-   * Deliberately coarser than the Elo, because the measurement says the four
-   * searching tiers are barely separable: Vin and Ada share a band, and so do
-   * Rook and Sage. Showing five distinct steps here would imply a precision
-   * the ladder does not support.
+   * Deliberately coarser than the Elo, because tiers that the measurement
+   * cannot separate should not look separate: Vin and Nel share a band, and so
+   * do Ada and Rook. Showing seven distinct steps would imply a precision the
+   * ladder does not support.
    */
   readonly strength: 1 | 2 | 3 | 4 | 5;
   /** One-word label for that strength, for players who prefer words to pips. */
@@ -71,22 +71,29 @@ export interface OpponentProfile {
 }
 
 /**
- * The opponents you can seat, weakest first.
+ * The opponents you can seat, weakest first by measured rating.
  *
- * Ratings measured 2026-08-29 by `ARENA_ROSTER=1 ARENA_GAMES=120 npm run arena`
- * (120 games, ~103 per agent, 73 minutes). Re-run it after changing any tier.
- *
- * Read the error bars before trusting a gap. The ladder is monotonic in all
- * three measures - Elo, mean score and win rate - but the four searching tiers
- * sit within about 90 Elo of each other with error bars of roughly 30, so
- * Rook and Ada in particular are NOT statistically distinguishable. Extra
- * search budget shows sharply diminishing returns: 40ms to 2000ms, a fiftyfold
- * increase, buys under 90 Elo. The gaps that are unambiguous are the ones
- * below Nel.
+ * Measured 2026-08-30 by `node scripts/arena-parallel.mjs --games 480 --roster`
+ * (480 games, ~411 per agent, 18 minutes across 18 processes). Re-run it after
+ * changing any tier.
  *
  * The tiers use genuinely different methods rather than one engine throttled
  * down, so a weak opponent plays *simply* instead of erratically: it misses
  * good plays rather than making bizarre ones.
+ *
+ * Two things this measurement settled, both worth knowing before editing:
+ *
+ * 1. Vin does NOT beat the plain heuristic. Vin is ISMCTS at 40ms and rates
+ *    1571; Nel, which never looks ahead at all, rates 1585. The Elo gap is
+ *    inside the error bars, but the mean scores agree with the ordering -
+ *    7.09 against 5.71, about 1.8 standard errors apart. At 40ms the search
+ *    does not get far enough to improve on the heuristic that drives its own
+ *    rollouts; it mostly adds noise. They share a strength band for that
+ *    reason, and Vin's blurb no longer claims an advantage it does not have.
+ *
+ * 2. Search still shows sharply diminishing returns above that. Ada at 150ms
+ *    to Sage at 2000ms, a thirteenfold increase, buys about 106 Elo, and Ada
+ *    and Rook stay within a standard error of each other.
  */
 export const ROSTER: readonly OpponentProfile[] = [
   {
@@ -96,23 +103,36 @@ export const ROSTER: readonly OpponentProfile[] = [
     kind: 'random',
     strength: 1,
     tier: 'Beginner',
-    meanScore: 41.03,
-    winRate: 0.0,
+    meanScore: 41.48,
+    winRate: 0.006,
     elo: 971,
-    eloError: 48,
+    eloError: 36,
   },
   {
     id: 'dot',
     name: 'Dot',
     blurb: 'Has the right instincts but is easily distracted.',
     kind: 'blundering-heuristic',
+    epsilon: 0.4,
     strength: 2,
     tier: 'Casual',
-    meanScore: 22.43,
-    winRate: 0.019,
-    epsilon: 0.4,
-    elo: 1274,
-    eloError: 38,
+    meanScore: 20.08,
+    winRate: 0.014,
+    elo: 1334,
+    eloError: 33,
+  },
+  {
+    id: 'vin',
+    name: 'Vin',
+    blurb: 'Looks a little way ahead, though not far enough to show for it.',
+    kind: 'ismcts',
+    budgetMs: 40,
+    strength: 3,
+    tier: 'Steady',
+    meanScore: 7.09,
+    winRate: 0.15,
+    elo: 1571,
+    eloError: 34,
   },
   {
     id: 'nel',
@@ -121,48 +141,35 @@ export const ROSTER: readonly OpponentProfile[] = [
     kind: 'heuristic',
     strength: 3,
     tier: 'Steady',
-    meanScore: 8.62,
-    winRate: 0.138,
-    elo: 1552,
-    eloError: 43,
-  },
-  {
-    id: 'vin',
-    name: 'Vin',
-    blurb: 'Thinks ahead a little, and counts the cards already shown.',
-    kind: 'ismcts',
-    strength: 4,
-    tier: 'Strong',
-    meanScore: 4.41,
-    winRate: 0.183,
-    budgetMs: 40,
-    elo: 1640,
-    eloError: 29,
+    meanScore: 5.71,
+    winRate: 0.221,
+    elo: 1585,
+    eloError: 35,
   },
   {
     id: 'ada',
     name: 'Ada',
     blurb: 'Searches properly. A serious opponent.',
     kind: 'ismcts',
+    budgetMs: 150,
     strength: 4,
     tier: 'Strong',
-    meanScore: 3.17,
-    winRate: 0.207,
-    budgetMs: 150,
-    elo: 1665,
-    eloError: 26,
+    meanScore: 4.47,
+    winRate: 0.199,
+    elo: 1627,
+    eloError: 28,
   },
   {
     id: 'rook',
     name: 'Rook',
     blurb: 'Takes her time and rarely wastes a turn.',
     kind: 'ismcts',
-    strength: 5,
-    tier: 'Expert',
-    meanScore: 2.06,
-    winRate: 0.252,
     budgetMs: 600,
-    elo: 1669,
+    strength: 4,
+    tier: 'Strong',
+    meanScore: 2.36,
+    winRate: 0.265,
+    elo: 1679,
     eloError: 30,
   },
   {
@@ -170,13 +177,13 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Sage',
     blurb: 'Thinks hard about every card. Expect to lose.',
     kind: 'ismcts',
+    budgetMs: 2000,
     strength: 5,
     tier: 'Expert',
-    meanScore: 1.24,
-    winRate: 0.369,
-    budgetMs: 2000,
-    elo: 1729,
-    eloError: 29,
+    meanScore: 1.85,
+    winRate: 0.31,
+    elo: 1733,
+    eloError: 26,
   },
 ];
 
