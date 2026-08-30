@@ -79,7 +79,8 @@ keeps the swap a clear win.
 | M2 | Training loop and checkpointing | not started |
 | M3 | Self-play data generation, resumable | not started |
 | M4 | Network-backed ISMCTS agent | not started |
-| M5 | Generation loop, evaluation, roster re-rating | not started |
+| M5 | Policy head first, keeping heuristic rollouts | not started |
+| M6 | Value head, generation loop, roster re-rating | not started |
 
 ### M0 - Prior caching and benchmark harness
 
@@ -123,7 +124,19 @@ Plug the evaluator into `ismctsSearch` behind an option: value replaces the
 rollout, policy replaces the prior. Existing agents must be untouched and the
 existing tests must still pass.
 
-### M5 - Generation loop, evaluation, roster re-rating
+### M5 - Policy head first, then the value head
+
+**Restructured 2026-08-30 after a negative result** (see the running log). Train
+and ship the POLICY head first, keeping the existing heuristic rollouts, and
+only then add the value head.
+
+Two reasons. First, it de-risks: the leaf-only fitting experiment showed a
+low-capacity calibrated value function actively harms play, so the value head
+carries more risk than the policy head. Second, the policy head was already the
+better bet on the analysis - at ~3,884 iterations, narrowing the move list
+matters more than valuing leaves precisely.
+
+### M6 - Generation loop, evaluation, roster re-rating
 
 Iterate: self-play, train, arena against the previous generation, accept or
 reject. Then re-rate the whole roster and ship the new tier. One or two
@@ -135,3 +148,46 @@ weak; the plan does not assume ten.
 Newest last. Record measurements, not impressions.
 
 - **2026-08-30** - Branch `feat/alphazero` opened. Plan and contracts written.
+
+- **2026-08-30 - the leaf-only fitting experiment FAILED, decisively.** This
+  matters for the whole project, so read it before trusting the value head.
+
+  Background: `expectedScore` serves two jobs, leaf value and move ranking. An
+  earlier attempt fitted its two parameters to self-play outcomes and played
+  worse, but it changed both jobs at once, so the test was confounded. The
+  hypothesis was that calibration is right for the leaf and wrong for ranking.
+  `leafParams` was added to separate them and the hypothesis was tested
+  directly: fitted values (ev 2.765, p 0.7132) at the LEAF ONLY, ranking left
+  on the hand-set values, 200 games at 150ms.
+
+  ```
+  agent    games   elo  +/-  mean score  stderr  win rate
+  handset    600  1531   33        2.52    0.36     18.7%
+  fitted     600  1469   33        6.41    0.46     14.7%
+  ```
+
+  Mean score 6.41 against 2.52 is about **6.7 standard errors worse**. The
+  hypothesis is dead. Wiring was verified before concluding: `leafParams` feeds
+  only `estimateScores` at the rollout cutoff, while `rolloutAction` and the
+  priors keep the hand-set values.
+
+  **Mechanism, and why it does not sink the network.** Fitting TWO parameters
+  by mean squared error drives them toward predicting the average outcome:
+  `pMatch` moved from 0.068 to 0.713, which amounts to assuming unseen cards
+  usually cancel, so nearly every position scores alike. A near-constant leaf
+  value gives the search nothing to discriminate on. The failure is a capacity
+  problem, not evidence that calibrated leaf values are wrong in principle -
+  AlphaZero's value head is precisely a calibrated outcome predictor and it
+  works, because it has the capacity to be calibrated AND discriminative. Two
+  parameters can only buy calibration by flattening.
+
+  **What changes as a result:**
+  1. The standalone "learned linear evaluator" step is DEMOTED. A linear model
+     over ~30 features sits much closer to the failed 2-parameter case than to
+     a network, so it is a poor early signal. Skip it.
+  2. M5 is restructured to train the POLICY head first, keeping heuristic
+     rollouts, so the lower-risk half is validated on its own.
+  3. **No value function is accepted on prediction error, ever.** Every gate is
+     playing strength measured in the arena. This is now the second time in
+     this project that a large improvement in prediction accuracy came with a
+     large loss in strength.

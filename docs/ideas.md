@@ -12,7 +12,7 @@ Delete an entry when it ships or when it is decided against.
 | -------- | ---- |
 | High | Cache search priors at node expansion |
 | Medium | A stronger opponent above Sage |
-| Medium | Learned linear evaluator for the rollout leaf |
+| Low | Learned linear evaluator (premise tested and failed) |
 | Medium | Self-play value and policy network |
 | Low | Re-rate the roster after any engine change |
 
@@ -180,18 +180,34 @@ Note `determinize` is cheap. An earlier guess that it was the bottleneck at
 
 ## Learned linear evaluator for the rollout leaf
 
-**Priority: medium.** The cheap test of the idea behind the entry below.
+**Priority: DROPPED to low, and probably do not build it.** The premise was
+tested on 2026-08-30 and failed - see below and the running log in
+`docs/alphazero-plan.md`.
 
 **What:** replace the two hand-set constants in `expectedScore` with a linear
 model over ~30 hand-built features, fitted against self-play outcomes, used
 **only at the rollout leaf** and not for ranking moves.
 
-**Why this is not a repeat of the failed fit above:** the earlier attempt
-applied fitted values to both jobs at once. `expectedScore` serves two
-conflicting purposes - leaf value, which wants calibration, and move ranking,
-which wants an incentive to improve the position. Fitting both destroyed the
-ranking. `IsmctsOptions.leafParams` now exists to separate them, so the leaf
-can be calibrated while ranking keeps the hand-set values.
+**The premise was that this is not a repeat of the failed fit**, because the
+earlier attempt applied fitted values to both jobs at once - leaf value, which
+wants calibration, and move ranking, which wants an incentive to improve the
+position. `IsmctsOptions.leafParams` was added to separate them.
+
+**Tested 2026-08-30. The premise was wrong.** Fitted values at the leaf ONLY,
+ranking left hand-set, 200 games at 150ms: mean score 6.41 +/-0.46 against the
+hand-set 2.52 +/-0.36, about **6.7 standard errors worse**. Elo 1469 against
+1531. The wiring was verified before concluding.
+
+The mechanism is capacity, not calibration. Fitting two parameters by mean
+squared error pushes them toward predicting the average: `pMatch` went from
+0.068 to 0.713, which assumes unseen cards usually cancel, so nearly every
+position scores alike and the search has nothing to discriminate on. A linear
+model over ~30 features is far closer to this failed case than to a network,
+which is why this entry is demoted rather than kept as a stepping stone.
+
+The lesson that generalises: **never accept a value function on prediction
+error.** Gate on playing strength in the arena. That is now twice in this
+project that a large accuracy gain came with a large strength loss.
 
 **Why the leaf is worth attacking:** rounds run 50-103 turns and
 `rolloutTurnLimit` is 8, so about **86% of rollouts never reach a real score**
