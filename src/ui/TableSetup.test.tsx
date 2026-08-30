@@ -42,7 +42,7 @@ describe('TableSetup', () => {
     for (const n of [1, 3, 6]) {
       const onStart = vi.fn();
       const { unmount } = render(<TableSetup onStart={onStart} />);
-      await userEvent.click(screen.getByRole('button', { name: String(n) }));
+      await userEvent.click(screen.getByRole('button', { name: `${n} opponent${n === 1 ? '' : 's'}` }));
       await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
       expect(onStart.mock.calls[0][0]).toHaveLength(n);
       unmount();
@@ -54,7 +54,7 @@ describe('TableSetup', () => {
     render(<TableSetup onStart={onStart} />);
 
     await userEvent.selectOptions(screen.getByLabelText('Opponent in seat 1'), 'sage');
-    await userEvent.click(screen.getByRole('button', { name: '6' }));
+    await userEvent.click(screen.getByRole('button', { name: '6 opponents' }));
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
     const seats = onStart.mock.calls[0][0];
@@ -68,7 +68,7 @@ describe('TableSetup', () => {
     render(<TableSetup onStart={onStart} />);
 
     const before = presetSeats('club', DEFAULT_OPPONENTS);
-    await userEvent.click(screen.getByRole('button', { name: '2' }));
+    await userEvent.click(screen.getByRole('button', { name: '2 opponents' }));
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
     expect(onStart.mock.calls[0][0]).toEqual(before.slice(0, 2));

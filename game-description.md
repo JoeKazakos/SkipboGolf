@@ -457,6 +457,18 @@ Two consequences worth stating:
 - The opponent ratings in the app were measured in six-player games. They order the
   opponents correctly but are not calibrated for other table sizes.
 
+### 15.13 A match may run several rounds **[RULES CHANGE]**
+
+Section 13 says a full game is one round, and one round remains the default and the
+faithful reading. The app also offers a match of 3, 9 or 18 rounds, chosen before play.
+
+A match changes nothing about how a round is played or scored. It deals a fresh round each
+time and adds each player's round score to a running total; the lowest total after the last
+round wins. Ties are untied, as in section 12.
+
+This is bookkeeping around the rules rather than part of them, so it lives outside the
+engine (`src/ui/match.ts`). The engine remains a single-round implementation.
+
 ## 16. Source of Truth
 
 This document is the canonical how-to-play reference for Skip-Bo Golf. If any later document disagrees with this one, this file should be treated as the game rules to follow.

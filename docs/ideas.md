@@ -12,7 +12,6 @@ Delete an entry when it ships or when it is decided against.
 | -------- | ---- |
 | Medium | Rate the human player |
 | Medium | A stronger opponent above Sage |
-| Medium | Revisit the multi-round match |
 | Low | Survive a page refresh |
 | Low | Animate cards moving |
 | Low | Tighten the error bars on the CPU ratings |
@@ -327,27 +326,4 @@ only record of it.
 
 
 
-## Revisit the multi-round match
-
-**Status:** wanted, not started. **Priority: medium.** Raised 2026-08-29.
-
-**What:** a match of several rounds - golf's nine or eighteen holes - with a
-cumulative scorecard, rather than a single round deciding it.
-
-**Why:** this was considered before the game existed and "exactly as written,
-one round" was chosen. Now that it is playable, one round is very short for the
-setup it takes. Worth deciding again with the game in hand.
-
-### Notes
-
-- Section 13 of the rules says a full game is one round, so this is another
-  **[RULES CHANGE]** to record in section 15 if it is adopted, alongside 15.2,
-  15.8 and 15.12.
-- The engine needs nothing: a match is a wrapper that deals a fresh round and
-  accumulates `returns()` per player. Keep it out of the engine, which should
-  stay a single-round rules implementation.
-- Decide what carries between rounds. Nothing has to, but the seating should
-  obviously stay, and the dealer or start player might rotate.
-
----
 
