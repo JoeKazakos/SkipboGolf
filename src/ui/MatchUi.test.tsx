@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { GameOver } from './GameOver';
 import { SettingsProvider } from './settings';
 import { applyAction, createInitialState, isTerminal, legalActions, returns } from '../engine/state';
