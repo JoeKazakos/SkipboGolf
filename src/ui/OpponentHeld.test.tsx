@@ -68,3 +68,37 @@ describe("an opponent's held card", () => {
     expect(screen.queryByTestId('opponent-held')).toBeNull();
   });
 });
+
+describe('the in-hand slot does not move the board', () => {
+  it('reserves its space whether or not a card is held', () => {
+    const idle = (() => {
+      let s = createInitialState(21);
+      s = applyAction(s, { type: 'draw', source: { kind: 'pile' } });
+      return applyAction(s, { type: 'discard' });
+    })();
+    const { unmount } = render(<App initialState={idle} agent={idleAgent} aiDelayMs={0} />);
+    const emptySlots = document.querySelectorAll('.seat--opponent .seat__held').length;
+    unmount();
+
+    const holding = opponentHolding('center');
+    render(<App initialState={holding} agent={idleAgent} aiDelayMs={0} />);
+    const filledSlots = document.querySelectorAll('.seat--opponent .seat__held').length;
+
+    // Present in both states, so nothing appears or disappears from the layout.
+    expect(emptySlots).toBe(filledSlots);
+    expect(emptySlots).toBeGreaterThan(0);
+  });
+
+  it('sits alongside the discard, below the grid, not above it', () => {
+    const s = opponentHolding('center');
+    render(<App initialState={s} agent={idleAgent} aiDelayMs={0} />);
+    const seat = document.querySelector('.seat--opponent') as HTMLElement;
+    const foot = seat.querySelector('.seat__foot') as HTMLElement;
+    // The held slot and the discard share the footer row.
+    expect(foot.querySelector('.seat__held')).toBeTruthy();
+    expect(foot.querySelector('.seat__discard')).toBeTruthy();
+    // And the footer comes after the grid in document order.
+    const grid = seat.querySelector('.grid--sm') as HTMLElement;
+    expect(grid.compareDocumentPosition(foot) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

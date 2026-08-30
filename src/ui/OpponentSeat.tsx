@@ -76,14 +76,6 @@ export function OpponentSeat({
         </span>
       </header>
 
-      {held && (
-        <div className="seat__held" data-testid="opponent-held">
-          <span className="mini-label">in hand</span>
-          {/* A null rank renders a back and keeps the rank out of the DOM
-              entirely, which is exactly what a blind pile draw needs. */}
-          <CardFace rank={held.card?.rank ?? null} size="sm" />
-        </div>
-      )}
       <div className="grid grid--sm" role="group" aria-label={`${name}'s ten cards`}>
         {Array.from({ length: GRID_SIZE }, (_, i) => (
           <div key={i} className="spot spot--static" role="img" aria-label={spotName(i)}>
@@ -96,27 +88,47 @@ export function OpponentSeat({
         ))}
       </div>
 
-      <div className="seat__discard">
-        {drawable && top ? (
-          <button
-            type="button"
-            className={`pile-btn ${hinted ? 'pile-btn--hint' : ''}`}
-            onClick={() => onDraw(player)}
-            aria-label={`Draw the ${top.rank === 13 ? 'Skip-Bo' : top.rank} from ${name}'s discard pile`}
-          >
-            <DiscardFan cards={discardTop3} />
-            <span className="pile-btn__cta">take</span>
-          </button>
-        ) : discardTop3.length > 0 ? (
-          <div className="pile-static">
-            <DiscardFan cards={discardTop3} />
-          </div>
-        ) : (
-          // Kept short: the caption below already reads "Discard (0)", and a
-          // longer word does not fit inside the small placeholder.
-          <CardSlotEmpty size="sm" label="none" />
-        )}
-        <span className="mini-label mini-label--center">discard ({discardCount})</span>
+      <div className="seat__foot">
+        <div className="seat__discard">
+          {drawable && top ? (
+            <button
+              type="button"
+              className={`pile-btn ${hinted ? 'pile-btn--hint' : ''}`}
+              onClick={() => onDraw(player)}
+              aria-label={`Draw the ${top.rank === 13 ? 'Skip-Bo' : top.rank} from ${name}'s discard pile`}
+            >
+              <DiscardFan cards={discardTop3} />
+              <span className="pile-btn__cta">take</span>
+            </button>
+          ) : discardTop3.length > 0 ? (
+            <div className="pile-static">
+              <DiscardFan cards={discardTop3} />
+            </div>
+          ) : (
+            // Kept short: the caption below already reads "Discard (0)", and a
+            // longer word does not fit inside the small placeholder.
+            <CardSlotEmpty size="sm" label="none" />
+          )}
+          <span className="mini-label mini-label--center">discard ({discardCount})</span>
+        </div>
+
+        {/*
+          Always rendered, even when nothing is held. Showing this only while a
+          card was in hand made the whole board jump down and back on every
+          draw, which is what the reserved empty slot avoids.
+        */}
+        <div className="seat__held">
+          {held ? (
+            <div data-testid="opponent-held">
+              {/* A null rank renders a back and keeps the rank out of the DOM
+                  entirely, which is exactly what a blind pile draw needs. */}
+              <CardFace rank={held.card?.rank ?? null} size="sm" />
+            </div>
+          ) : (
+            <CardSlotEmpty size="sm" label="" />
+          )}
+          <span className="mini-label mini-label--center">in hand</span>
+        </div>
       </div>
     </section>
   );
