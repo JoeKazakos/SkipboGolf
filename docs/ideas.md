@@ -12,7 +12,6 @@ Delete an entry when it ships or when it is decided against.
 | -------- | ---- |
 | Medium | Rate the human player |
 | Medium | A stronger opponent above Sage |
-| Low | Animate cards moving |
 | Low | Tighten the error bars on the CPU ratings |
 | Low | Position setup and analysis mode |
 
@@ -279,27 +278,6 @@ search until the position is consistent. Budget the effort there.
 
 
 
-## Animate cards moving
-
-**Status:** wanted, not started. **Priority: low.** Raised 2026-08-29.
-
-**What:** show cards travelling between the piles, the hand and the grid,
-rather than the board changing instantly.
-
-**Why:** a wave chain currently resolves in one frame, so the most interesting
-move in the game is the one you cannot see happen. Today the action log is the
-only record of it.
-
-### Notes
-
-- `Card.id` is stable across states, which is what a FLIP-style animation needs
-  to match a card before and after. It is already there for this.
-- The opponent pacing (`aiDelayMs`, and `ACT_PAUSE_RATIO` for placements) is
-  where an animation has to fit. At Fast speed there may not be room, so this
-  probably wants to degrade to no animation rather than slow the game down.
-- Respect `prefers-reduced-motion`; the stylesheet already has a block for it.
-
----
 
 
 
