@@ -1769,3 +1769,54 @@ button.spot--legal:focus-visible .card {
   font-variant-numeric: tabular-nums;
   padding: 3px 0;
 }
+
+/* --------------------------------------------------------------- animation */
+/*
+ * Only the cards that actually changed animate, so a wave chain reads as a
+ * sequence of moves rather than the board silently rearranging.
+ *
+ * Gated three ways: the player's own setting (data-animate on the root, set by
+ * SettingsProvider), and the system reduced-motion preference below.
+ */
+@keyframes card-settle {
+  0% {
+    transform: translateY(-9px) scale(1.08);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.4);
+  }
+  60% {
+    transform: translateY(1px) scale(0.99);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes card-arrive {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+:root[data-animate='on'] .card--moved {
+  animation: card-settle 320ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  z-index: 2;
+}
+
+:root[data-animate='on'] .held .card,
+:root[data-animate='on'] .seat__held .card {
+  animation: card-arrive 220ms ease-out;
+}
+
+/* The system preference always wins over the in-app setting. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-animate='on'] .card--moved,
+  :root[data-animate='on'] .held .card,
+  :root[data-animate='on'] .seat__held .card {
+    animation: none;
+  }
+}

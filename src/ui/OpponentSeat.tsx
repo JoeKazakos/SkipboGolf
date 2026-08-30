@@ -3,6 +3,7 @@ import type { Card } from '../engine/cards';
 import { CardFace, CardSlotEmpty } from './CardFace';
 import { DiscardFan } from './HumanArea';
 import { spotName, visibleRanks, type ObservedGrid } from './format';
+import { useChangeFlash } from './useChangeFlash';
 
 interface Props {
   player: number;
@@ -47,6 +48,7 @@ export function OpponentSeat({
   onDraw,
 }: Props) {
   const ranks = visibleRanks(grid);
+  const moved = useChangeFlash(ranks);
   const faceUp = ranks.filter((r) => r != null).length;
   const top = discardTop3[discardTop3.length - 1];
 
@@ -85,7 +87,11 @@ export function OpponentSeat({
       <div className="grid grid--sm" role="group" aria-label={`${name}'s ten cards`}>
         {Array.from({ length: GRID_SIZE }, (_, i) => (
           <div key={i} className="spot spot--static" role="img" aria-label={spotName(i)}>
-            <CardFace rank={ranks[i]} size="sm" />
+            <CardFace
+              rank={ranks[i]}
+              size="sm"
+              className={moved.has(i) ? 'card--moved' : ''}
+            />
           </div>
         ))}
       </div>

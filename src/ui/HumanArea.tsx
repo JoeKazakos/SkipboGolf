@@ -1,6 +1,7 @@
 import { GRID_SIZE } from '../engine/cards';
 import type { Card } from '../engine/cards';
 import { CardFace, CardSlotEmpty } from './CardFace';
+import { useChangeFlash } from './useChangeFlash';
 import {
   playerName,
   rankLabel,
@@ -61,6 +62,7 @@ export function HumanArea({
   onUndo,
 }: Props) {
   const ranks = visibleRanks(grid);
+  const moved = useChangeFlash(ranks);
   const { score, hiddenColumns } = runningScore(ranks);
   const interactive = isMyTurn && phase === 'act';
 
@@ -103,7 +105,11 @@ export function HumanArea({
             if (!interactive) {
               return (
                 <div key={i} className={classes} aria-label={label} role="img">
-                  <CardFace rank={rank} size="lg" />
+                  <CardFace
+                  rank={rank}
+                  size="lg"
+                  className={moved.has(i) ? 'card--moved' : ''}
+                />
                   <span className="spot__coord" aria-hidden="true">
                     {spotLabel(i)}
                   </span>
@@ -122,7 +128,11 @@ export function HumanArea({
                 data-legal={isLegal ? 'true' : 'false'}
                 onClick={() => onPlace(i)}
               >
-                <CardFace rank={rank} size="lg" />
+                <CardFace
+                  rank={rank}
+                  size="lg"
+                  className={moved.has(i) ? 'card--moved' : ''}
+                />
                 <span className="spot__coord" aria-hidden="true">
                   {spotLabel(i)}
                 </span>
