@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { DEFAULT_OPPONENTS, PRESETS, ROSTER, presetSeats } from '../ai/roster';
+import { DEFAULT_OPPONENTS, DEFAULT_PRESET_ID, PRESETS, ROSTER, presetSeats } from '../ai/roster';
 import { TableSetup } from './TableSetup';
 import { ProfilesProvider } from './ProfilesContext';
 
@@ -22,7 +22,7 @@ describe('TableSetup', () => {
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
     expect(onStart).toHaveBeenCalledTimes(1);
-    expect(onStart.mock.calls[0][0]).toEqual(presetSeats('club', DEFAULT_OPPONENTS));
+    expect(onStart.mock.calls[0][0]).toEqual(presetSeats(DEFAULT_PRESET_ID, DEFAULT_OPPONENTS));
   });
 
   it('applies a preset to every seat', async () => {
@@ -43,7 +43,7 @@ describe('TableSetup', () => {
     await userEvent.selectOptions(screen.getByLabelText('Opponent in seat 3'), 'sage');
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
-    const expected = presetSeats('club', DEFAULT_OPPONENTS);
+    const expected = presetSeats(DEFAULT_PRESET_ID, DEFAULT_OPPONENTS);
     expected[2] = 'sage';
     expect(onStart.mock.calls[0][0]).toEqual(expected);
   });
@@ -77,7 +77,7 @@ describe('TableSetup', () => {
     const onStart = vi.fn();
     renderSetup({ onStart });
 
-    const before = presetSeats('club', DEFAULT_OPPONENTS);
+    const before = presetSeats(DEFAULT_PRESET_ID, DEFAULT_OPPONENTS);
     await userEvent.click(screen.getByRole('button', { name: '2 opponents' }));
     await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
 
@@ -136,5 +136,49 @@ describe('TableSetup', () => {
         expect(screen.queryByText(String(profile.elo))).toBeNull();
       }
     }
+  });
+});
+
+describe('preset descriptions follow the table size', () => {
+  it('updates the gauntlet text when the opponent count changes', async () => {
+    renderSetup({ onStart: vi.fn() });
+    const gauntlet = () =>
+      screen.getByRole('button', { name: /The gauntlet/ }).textContent ?? '';
+
+    // Default table.
+    expect(gauntlet()).toMatch(new RegExp(`${DEFAULT_OPPONENTS} best`));
+
+    await userEvent.click(screen.getByRole('button', { name: '3 opponents' }));
+    expect(gauntlet()).toMatch(/3 best/);
+    expect(gauntlet()).not.toMatch(new RegExp(`${DEFAULT_OPPONENTS} best`));
+
+    await userEvent.click(screen.getByRole('button', { name: '1 opponent' }));
+    // Reads naturally at one rather than saying "the 1 best".
+    expect(gauntlet()).toMatch(/best there is/);
+  });
+
+  it('never states a count that disagrees with the table', async () => {
+    renderSetup({ onStart: vi.fn() });
+    for (const n of [1, 2, 4, 6]) {
+      await userEvent.click(
+        screen.getByRole('button', { name: `${n} opponent${n === 1 ? '' : 's'}` }),
+      );
+      for (const preset of PRESETS) {
+        const text = screen.getByRole('button', { name: new RegExp(preset.name) }).textContent ?? '';
+        // Any number in a preset description must be the current count.
+        for (const found of text.matchAll(/\b(\d+)\b/g)) {
+          expect(Number(found[1])).toBe(n);
+        }
+      }
+    }
+  });
+});
+
+describe('the default table', () => {
+  it('is the gauntlet, since most players are already good', async () => {
+    const onStart = vi.fn();
+    renderSetup({ onStart });
+    await userEvent.click(screen.getByRole('button', { name: /Deal the round/ }));
+    expect(onStart.mock.calls[0][0]).toEqual(presetSeats('gauntlet', DEFAULT_OPPONENTS));
   });
 });

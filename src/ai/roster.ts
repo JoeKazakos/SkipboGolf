@@ -239,7 +239,11 @@ function buildAgent(profile: OpponentProfile, seed: number): Agent {
 export interface Preset {
   readonly id: string;
   readonly name: string;
-  readonly description: string;
+  /**
+   * Takes the opponent count, because a fixed string goes stale: "Five of the
+   * best" was still on screen after the table was cut to three.
+   */
+  readonly description: (opponents: number) => string;
   /**
    * Profile ids in seating order, longest table first. A table with fewer
    * opponents takes the first N, so a preset keeps its character at any size.
@@ -251,30 +255,33 @@ export const PRESETS: readonly Preset[] = [
   {
     id: 'gentle',
     name: 'Gentle',
-    description: 'A friendly table for learning the rules.',
+    description: () => 'A friendly table for learning the rules.',
     seats: ['pip', 'pip', 'dot', 'dot', 'nel', 'nel'],
   },
   {
     id: 'club',
     name: 'Club night',
-    description: 'A mixed table, the way a real game goes.',
+    description: () => 'A mixed table, the way a real game goes.',
     seats: ['dot', 'nel', 'nel', 'vin', 'ada', 'vin'],
   },
   {
     id: 'tough',
     name: 'Tough crowd',
-    description: 'Everyone here can play.',
+    description: () => 'Everyone here can play.',
     seats: ['nel', 'vin', 'ada', 'ada', 'rook', 'rook'],
   },
   {
     id: 'gauntlet',
     name: 'The gauntlet',
-    description: 'Five of the best. Good luck.',
+    description: (n) => `The ${n === 1 ? 'best there is' : `${n} best`}. Good luck.`,
     seats: ['ada', 'rook', 'rook', 'sage', 'sage', 'sage'],
   },
 ];
 
-export const DEFAULT_PRESET_ID = 'club';
+// The gauntlet by default: most people coming to this already play the game
+// well, and a table that is too easy is a duller first impression than one
+// that is too hard.
+export const DEFAULT_PRESET_ID = 'gauntlet';
 
 /** Opponent counts the table supports, alongside the one human player. */
 export const MIN_OPPONENTS = 1;

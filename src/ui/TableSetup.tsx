@@ -210,7 +210,7 @@ export function TableSetup({ onStart, initialSeats }: TableSetupProps) {
               onClick={() => applyPreset(preset.id)}
             >
               <span className="preset__name">{preset.name}</span>
-              <span className="preset__desc">{preset.description}</span>
+              <span className="preset__desc">{preset.description(seats.length)}</span>
             </button>
           ))}
         </div>
