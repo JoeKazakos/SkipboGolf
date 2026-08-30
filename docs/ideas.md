@@ -16,7 +16,6 @@ Delete an entry when it ships or when it is decided against.
 | Medium | A stronger opponent above Sage |
 | Medium | An in-app rules reference |
 | Medium | Revisit the multi-round match |
-| Medium | A proper browser icon |
 | Low | Survive a page refresh |
 | Low | Animate cards moving |
 | Low | Explain the final score |
@@ -486,45 +485,3 @@ setup it takes. Worth deciding again with the game in hand.
 
 ---
 
-## A proper browser icon
-
-**Status:** wanted, not started. **Priority: medium.** Raised 2026-08-29.
-
-**What:** give the app a real icon in the browser tab, and on a phone home
-screen.
-
-### Current state
-
-There is none at all. `index.html` has no `<link rel="icon">` and there is no
-`public/` directory, so the browser falls back to its default mark and a
-request for `/favicon.ico` is not served by anything.
-
-### What to add
-
-- **`public/favicon.svg`** as the main icon. SVG stays crisp at every size and
-  is a single file. An SVG favicon can also carry a
-  `@media (prefers-color-scheme: dark)` rule inside it, so the mark can hold up
-  against both light and dark browser chrome.
-- **An `.ico` fallback** only if an old browser matters; modern ones take SVG.
-- **`apple-touch-icon.png`** at 180x180. This matters more than it used to now
-  that the app works on phones - it is what iOS uses if someone adds the game
-  to their home screen.
-- **`<meta name="theme-color">`**, which tints the browser chrome on mobile.
-  Give it a light and a dark value to match the two palettes.
-- A **web manifest** only if the game should be installable. Worth deciding
-  deliberately rather than adding by reflex.
-
-### Design
-
-The visual language already exists in the app and the icon should borrow from
-it rather than invent something:
-
-- Felt green `#1d6b4b`, the table.
-- Gold `#e0a52a`, used for every highlight and legal-move outline.
-- The card back's blue crosshatch, `#2f5d8a` to `#1d3f61`.
-- The Skip-Bo card renders "SB" in red on a gold-edged card, which is the most
-  distinctive mark in the game.
-
-A single card shape on felt is probably enough. Keep it legible at 16px, which
-rules out anything with five small cards in a grid - the play area does not
-shrink to a favicon.

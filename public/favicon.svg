@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Skip-Bo Golf">
+  <style>
+    /* The mark sits on felt in light chrome, and on nothing in dark chrome,
+       so the card itself carries the identity either way. */
+    .felt { fill: #1d6b4b; }
+    @media (prefers-color-scheme: dark) {
+      .felt { fill: #0c3b2a; }
+    }
+  </style>
+  <rect class="felt" width="64" height="64" rx="14" />
+  <!-- One card, angled, with the gold edge the game uses for a special rank. -->
+  <g transform="rotate(-8 32 32)">
+    <rect x="16" y="10" width="32" height="44" rx="5"
+          fill="#fdfdfb" stroke="#e0a52a" stroke-width="3" />
+    <text x="32" y="40" text-anchor="middle"
+          font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+          font-size="21" font-weight="700" fill="#b3452f">SB</text>
+  </g>
+</svg>
