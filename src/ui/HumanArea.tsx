@@ -21,6 +21,9 @@ interface Props {
   locked: readonly boolean[];
   legalSpots: ReadonlySet<number>;
   canDiscard: boolean;
+  /** True when there is something to take back this turn. */
+  canUndo?: boolean;
+  onUndo?: () => void;
   hintSpot: number | null;
   onPlace: (spot: number) => void;
   onDiscard: () => void;
@@ -51,9 +54,11 @@ export function HumanArea({
   locked,
   legalSpots,
   canDiscard,
+  canUndo,
   hintSpot,
   onPlace,
   onDiscard,
+  onUndo,
 }: Props) {
   const ranks = visibleRanks(grid);
   const { score, hiddenColumns } = runningScore(ranks);
@@ -148,6 +153,17 @@ export function HumanArea({
           >
             Discard &amp; end turn
           </button>
+          {onUndo && (
+            <button
+              type="button"
+              className="btn btn--undo"
+              disabled={!canUndo}
+              onClick={onUndo}
+              title="Take back everything you have done this turn"
+            >
+              Undo turn
+            </button>
+          )}
           <div className="own-discard">
             <span className="mini-label">Your discard ({discardCount})</span>
             <DiscardFan cards={discardTop3} />

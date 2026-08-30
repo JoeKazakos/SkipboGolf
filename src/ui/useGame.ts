@@ -34,12 +34,26 @@ interface UiState {
   seq: number;
   hint: Hint | null;
   nextLogId: number;
+  /**
+   * The position as it stood at the start of the human's current turn, kept so
+   * the turn can be taken back.
+   *
+   * The engine is immutable, so undo is restore-a-snapshot rather than an
+   * inverse operation. The log is snapshotted with it: restoring the game
+   * alone would leave entries describing moves that no longer happened.
+   *
+   * `seq` is deliberately NOT restored. It only ever counts forward, and
+   * guards against a stale dispatch being applied twice; rewinding it could
+   * let an in-flight dispatch match again after an undo.
+   */
+  turnStart: { game: GameState; log: LogEntry[]; nextLogId: number } | null;
 }
 
 type UiAction =
   | { t: 'apply'; action: Action; expectSeq: number }
   | { t: 'hint'; hint: Hint }
   | { t: 'clearHint' }
+  | { t: 'undo' }
   | { t: 'reset'; game: GameState };
 
 function freshState(game: GameState, names: SeatNames): UiState {
@@ -57,6 +71,7 @@ function freshState(game: GameState, names: SeatNames): UiState {
     seq: 0,
     hint: null,
     nextLogId: 1,
+    turnStart: null,
   };
 }
 
@@ -72,6 +87,21 @@ function reducer(s: UiState, a: UiAction): UiState {
       // Drop a hint that arrived after the position already moved on.
       return a.hint.seq === s.seq ? { ...s, hint: a.hint } : s;
 
+    case 'undo': {
+      if (s.turnStart == null) return s;
+      return {
+        ...s,
+        game: s.turnStart.game,
+        log: s.turnStart.log,
+        nextLogId: s.turnStart.nextLogId,
+        // seq keeps counting forward so any dispatch still in flight, which
+        // expects the pre-undo value, is rejected rather than replayed.
+        seq: s.seq + 1,
+        hint: null,
+        turnStart: null,
+      };
+    }
+
     case 'apply': {
       if (a.expectSeq !== s.seq) return s; // duplicate or stale dispatch
       if (s.game.terminal) return s;
@@ -79,6 +109,14 @@ function reducer(s: UiState, a: UiAction): UiState {
       const pre = s.game;
       const actor = pre.current;
       const next = applyAction(pre, a.action);
+
+      // Snapshot the position at the first action of the human's turn, and
+      // drop it once the turn has passed on: undo is for the turn in hand.
+      const startingHumanTurn = actor === HUMAN && pre.phase === 'draw';
+      const turnStart = startingHumanTurn
+        ? { game: pre, log: s.log, nextLogId: s.nextLogId }
+        : s.turnStart;
+      const stillHumanTurn = !next.terminal && next.current === HUMAN;
 
       const entries: LogEntry[] = [];
       let id = s.nextLogId;
@@ -115,6 +153,7 @@ function reducer(s: UiState, a: UiAction): UiState {
         seq: s.seq + 1,
         hint: null,
         nextLogId: id,
+        turnStart: stillHumanTurn ? turnStart : null,
       };
     }
   }
@@ -232,6 +271,15 @@ export function useGame(options: UseGameOptions = {}) {
     [game, seq],
   );
 
+  /**
+   * Takes back everything done this turn. Only offered on the human's own
+   * turn, and never once the turn has ended: a discard commits it.
+   */
+  const canUndo = isHumanTurn && ui.turnStart != null;
+  const undo = useCallback(() => {
+    dispatch({ t: 'undo' });
+  }, []);
+
   const newGame = useCallback(
     (nextSeed?: number) => {
       dispatch({
@@ -314,6 +362,8 @@ export function useGame(options: UseGameOptions = {}) {
   return {
     game,
     names,
+    canUndo,
+    undo,
     log: ui.log,
     hint: ui.hint,
     hintPending,
