@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { App } from './App';
 import { TableSetup } from './TableSetup';
+import { SettingsProvider } from './settings';
 
 interface Table {
   seats: string[];
@@ -26,16 +27,18 @@ function randomSeed(): number {
 export function Root() {
   const [table, setTable] = useState<Table | null>(null);
 
-  if (table === null) {
-    return <TableSetup onStart={(seats) => setTable({ seats, seed: randomSeed() })} />;
-  }
-
   return (
-    <App
-      key={`${table.seed}-${table.seats.join('-')}`}
-      seats={table.seats}
-      seed={table.seed}
-      onChangeTable={() => setTable(null)}
-    />
+    <SettingsProvider>
+      {table === null ? (
+        <TableSetup onStart={(seats) => setTable({ seats, seed: randomSeed() })} />
+      ) : (
+        <App
+          key={`${table.seed}-${table.seats.join('-')}`}
+          seats={table.seats}
+          seed={table.seed}
+          onChangeTable={() => setTable(null)}
+        />
+      )}
+    </SettingsProvider>
   );
 }

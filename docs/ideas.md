@@ -16,16 +16,13 @@ Delete an entry when it ships or when it is decided against.
 | Medium | Revisit the multi-round match |
 | Low | Survive a page refresh |
 | Low | Animate cards moving |
-| Low | Explain the final score |
 | Low | Tighten the error bars on the CPU ratings |
 | Low | Position setup and analysis mode |
 
 Keep this table in step with the Status lines below when priorities change.
 
-**No settings surface exists yet.** "Explain the final score" is to be
-toggleable, and "Animate cards moving" plausibly wants a toggle too. Whichever
-is built first should create one place for preferences rather than scattering
-switches into the top bar, which already carries the speed control.
+Settings live in one place: `src/ui/settings.tsx`, opened from the top bar.
+Add new preferences there rather than to the top bar.
 
 ---
 
@@ -329,28 +326,6 @@ only record of it.
 
 ---
 
-## Explain the final score
-
-**Status:** wanted, not started. **Priority: low.** Raised 2026-08-29.
-
-**What:** on the scorecard, show *why* a hand scored what it did - which
-columns cancelled as a matching pair, which cards counted zero for being a 7,
-11 or Skip-Bo, and which 2x2 squares took off ten.
-
-**Toggleable in settings**, off or on by preference.
-
-**Why:** the scoring rules are the least obvious part of the game, especially
-that squares are counted left to right and a column cannot be reused.
-
-### Do not reimplement the scoring
-
-`scoreGrid(grid)` in `engine/scoring.ts` returns a single number. The
-explanation must come from the same code path - either have it optionally
-return a breakdown, or build the breakdown and derive the total from it.
-Writing a second scoring routine for display would drift from the real one,
-and then the app would explain a score it did not award.
-
----
 
 ## An in-app rules reference
 

@@ -8,6 +8,7 @@ import { OpponentSeat } from './OpponentSeat';
 import { HUMAN, playerName } from './format';
 import { DEFAULT_PRESET_ID, presetById, profileById } from '../ai/roster';
 import { DEFAULT_AI_DELAY_MS, useGame, type UseGameOptions } from './useGame';
+import { SettingsPanel } from './settings';
 import './styles.css';
 
 const SPEEDS = [
@@ -23,6 +24,7 @@ export interface AppProps extends UseGameOptions {
 
 export function App(props: AppProps = {}) {
   const [speed, setSpeed] = useState(1);
+  const [showSettings, setShowSettings] = useState(false);
   const baseDelay = props.aiDelayMs ?? DEFAULT_AI_DELAY_MS;
 
   const {
@@ -110,6 +112,13 @@ export function App(props: AppProps = {}) {
         </div>
         <button type="button" className="btn btn--ghost" onClick={() => newGame()}>
           New round
+        </button>
+        <button
+          type="button"
+          className="btn btn--ghost"
+          onClick={() => setShowSettings(true)}
+        >
+          Settings
         </button>
         {props.onChangeTable && (
           <button type="button" className="btn btn--ghost" onClick={props.onChangeTable}>
@@ -212,6 +221,7 @@ export function App(props: AppProps = {}) {
         <ActionLog entries={log} names={names} />
       </aside>
 
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {game.terminal && <GameOver state={game} names={names} onNewGame={() => newGame()} />}
     </div>
   );
