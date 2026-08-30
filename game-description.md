@@ -460,3 +460,8 @@ Two consequences worth stating:
 ## 16. Source of Truth
 
 This document is the canonical how-to-play reference for Skip-Bo Golf. If any later document disagrees with this one, this file should be treated as the game rules to follow.
+
+The app carries a short player-facing summary of these rules in
+`src/ui/RulesPanel.tsx`, reached from "How to play". It covers the turn, the wave, scoring
+and the round end, and is deliberately much shorter than this document. If a rule here
+changes, check that panel too.

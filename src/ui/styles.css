@@ -1634,3 +1634,85 @@ button.spot--legal:focus-visible .card {
 .working__totals {
   margin: 0;
 }
+
+/* ------------------------------------------------------------------- rules */
+.panel-card--wide {
+  max-width: 620px;
+}
+
+.rules__lede {
+  margin: 0 0 18px;
+  font-size: 0.95rem;
+}
+
+.rules__section {
+  margin-bottom: 18px;
+}
+
+.rules__section h3 {
+  margin: 0 0 7px;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--ink-soft);
+}
+
+.rules__section p {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.rules__steps,
+.rules__list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.rules__steps li,
+.rules__list li {
+  margin-bottom: 5px;
+}
+
+.rules__example {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 10px;
+  margin: 10px 0;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+
+.rules__col {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  max-width: 110px;
+}
+
+.rules__col--single {
+  align-self: start;
+}
+
+.rules__caption {
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.3;
+  margin-top: 3px;
+}
+
+.rules__arrow {
+  font-size: 1.2rem;
+  color: var(--ink-soft);
+}
+
+.setup__head .btn--ghost {
+  margin-top: 10px;
+}
