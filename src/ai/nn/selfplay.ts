@@ -54,6 +54,15 @@ export interface SelfPlayConfig {
    * that the previous generation's data made stronger.
    */
   weightsPath?: string;
+  /**
+   * Value calibration for the self-play network, matching what the arena uses.
+   *
+   * Not cosmetic: an uncalibrated network played 59 Elo worse than a calibrated
+   * one, so generating a generation's data with the uncalibrated form would
+   * train the next generation on the decisions of a deliberately worse player.
+   */
+  valueScale?: number;
+  valueCenter?: number;
   /** Table sizes to sample from, so the network sees every supported size. */
   playerCounts: readonly number[];
   seed: number;
@@ -177,13 +186,17 @@ export function playSelfPlayGame(
  * checksum does not match, because silently loading the wrong shape would
  * produce a generation of data played by a network nobody could account for.
  */
-export async function loadEvaluatorFromDisk(path: string, name = 'net'): Promise<Evaluator> {
+export async function loadEvaluatorFromDisk(
+  path: string,
+  name = 'net',
+  calibration: { valueScale?: number; valueCenter?: number } = {},
+): Promise<Evaluator> {
   const fs = await checkpointFs();
   const metaPath = path.replace(/\.bin$/, '.meta.json');
   if (!fs.existsSync(path)) throw new Error(`self-play: no weights at ${path}`);
   if (!fs.existsSync(metaPath)) throw new Error(`self-play: no sidecar at ${metaPath}`);
   const meta = JSON.parse(new TextDecoder().decode(fs.readFileSync(metaPath))) as WeightsMeta;
-  return createNetEvaluator(deserializeWeights(fs.readFileSync(path), meta), name);
+  return createNetEvaluator(deserializeWeights(fs.readFileSync(path), meta), name, calibration);
 }
 
 /** Deterministic per-game seed, so a shard replays identically. */
@@ -328,7 +341,10 @@ export async function runShard(
   // Loaded once per shard rather than per game: the weights do not change
   // within a generation, and a shard is 25 games.
   const evaluator = config.weightsPath
-    ? await loadEvaluatorFromDisk(config.weightsPath, 'selfplay')
+    ? await loadEvaluatorFromDisk(config.weightsPath, 'selfplay', {
+        valueScale: config.valueScale,
+        valueCenter: config.valueCenter,
+      })
     : undefined;
   const indices = gamesForShard(config, shard, shards);
   const samples: RawSample[] = [];

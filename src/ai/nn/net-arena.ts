@@ -52,6 +52,10 @@ async function main(): Promise<void> {
   const iterations = Number(env.NA_ITERATIONS ?? 400);
   const seed = Number(env.NA_SEED ?? 606060);
   const opponents = (env.NA_OPPONENTS ?? 'nel,vin,ada,rook').split(',');
+  // Seats at the table. A focused experiment trains for one table size and must
+  // be judged at that size; rating a 3-player specialist at a 6-player table
+  // measures something it was never trained to do.
+  const seats = Number(env.NA_SEATS ?? 6);
 
   // A network trained with the reveal encoder MUST be evaluated with it too:
   // the same weights fed masked features is a different function, and nothing
@@ -132,7 +136,7 @@ async function main(): Promise<void> {
 
   const results = [];
   for (let g = 0; g < games; g++) {
-    results.push(await playIndexedGame(ladder, g, { seed, seatCount: Math.min(6, ladder.length) }));
+    results.push(await playIndexedGame(ladder, g, { seed, seatCount: Math.min(seats, ladder.length) }));
     if ((g + 1) % 10 === 0) console.log(`  ${g + 1}/${games} games`);
   }
 

@@ -22,7 +22,8 @@
     "net:diag": "vite-node src/ai/nn/value-diag.ts",
     "ceiling": "vite-node src/ai/nn/ceiling.ts",
     "train:shared": "vite-node src/ai/nn/train-shared.ts",
-    "netladder": "node scripts/netladder.mjs"
+    "netladder": "node scripts/netladder.mjs",
+    "gen3p": "node scripts/gen3p.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -188,6 +188,44 @@ async function main(): Promise<void> {
     await writeFileAtomic(join(ckptDir, checkpointName(trainer.epoch)), encodeCheckpoint(trainer, `gen${generation}`));
   }
 
+  /**
+   * Value calibration, derived rather than hand-set.
+   *
+   * A trained head regresses toward the mean, and the search compares value
+   * differences against a fixed exploration term, so an under-spread head
+   * leaves the search wandering. The stretch that fixes it is just the ratio of
+   * the outcome's spread to the head's, and both are measurable here - so every
+   * generation calibrates itself instead of inheriting a number fitted to an
+   * earlier one.
+   */
+  const preds: number[] = [];
+  const targets: number[] = [];
+  for (const sample of holdoutBatch) {
+    preds.push(trainer.net.forward(sample.input).value[0]);
+    targets.push(sample.valueTarget[0]);
+  }
+  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const sd = (xs: number[]) => {
+    const m = mean(xs);
+    return Math.sqrt(mean(xs.map((x) => (x - m) ** 2)));
+  };
+  const netSd = sd(preds);
+  const calibration = {
+    valueScale: netSd > 1e-6 ? sd(targets) / netSd : 1,
+    valueCenter: mean(targets),
+    netSpread: netSd,
+    targetSpread: sd(targets),
+  };
+  await writeFileAtomic(
+    join(dir, `calibration${suffix}.json`),
+    new TextEncoder().encode(JSON.stringify(calibration, null, 2)),
+  );
+  console.log(
+    `  calibration: scale ${calibration.valueScale.toFixed(3)}, ` +
+      `centre ${calibration.valueCenter.toFixed(4)} ` +
+      `(head spread ${netSd.toFixed(4)} vs outcome ${calibration.targetSpread.toFixed(4)})`,
+  );
+
   // The shippable artefact: weights alone, without optimiser state.
   await writeFileAtomic(join(dir, `weights${suffix}.bin`), serializeWeights(trainer.net));
   await writeFileAtomic(
