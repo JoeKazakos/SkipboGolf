@@ -471,3 +471,34 @@ The next thing to build is `determinize` inference, written up in
 `docs/ideas.md`. It attacks the constraint the probe actually found, reuses the
 390,000 positions already on disk, and competes against a uniform prior rather
 than a competent rollout.
+
+- **2026-08-31 - the blend sweep closes the value-network line properly.**
+
+  Every experiment before this asked whether the network should REPLACE the
+  rollout. None asked how much of each is best, which was following AlphaZero's
+  recipe without checking its precondition: AlphaZero drops rollouts because its
+  value network is far stronger than them, and this one is not. The diagnostics
+  said the two were complementary - the network correlating better with the
+  outcome overall, 0.49 against 0.41, and far worse at separating the moves
+  available now, a sibling ratio of 0.37 against 0.51.
+
+  400 games, one pool, three players, network weight swept:
+
+  | network weight | elo vs control | mean score vs control |
+  | -------------- | -------------- | --------------------- |
+  | 25% | +1 (0.03 sd) | -0.06 (0.07 sd) |
+  | 50% | -31 (1.02 sd) | +0.56 |
+  | 75% | -47 (1.43 sd) | +1.44 |
+  | 100% | -48 (1.43 sd) | +0.69 |
+
+  Monotone in the network weight. A quarter network ties the control to within
+  0.03 standard errors, and every increase past that is worse. There is no
+  blend that beats the rollout.
+
+  **That closes the value network with the question properly asked.** Not "full
+  replacement failed" but "no weighting of this network's value into the leaf
+  helps at all". Seven configurations, four generations, five blend weights.
+
+  The policy head remains neutral - it ties its control everywhere - so a
+  learned prior is sound in principle and simply unprofitable at 133us against a
+  5.4us heuristic.
