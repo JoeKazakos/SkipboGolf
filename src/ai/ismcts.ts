@@ -10,6 +10,8 @@ import {
 } from '../engine/state';
 import type { Action, GameState } from '../engine/types';
 import type { Agent } from './agent';
+import type { Evaluator } from './nn/contracts';
+import { evaluatorPriors, evaluatorReward } from './nn/evaluator';
 import {
   DEFAULT_EVAL_PARAMS,
   deckRankCounts,
@@ -59,6 +61,16 @@ export interface IsmctsOptions {
    * going out. The plain evaluation ignores the race entirely.
    */
   raceAware?: boolean;
+  /**
+   * A trained network standing in for BOTH weak parts of the search: its value
+   * head replaces the truncated rollout at a leaf, and its policy head
+   * replaces the heuristic prior during descent.
+   *
+   * Absent, the search behaves exactly as it did before this existed. That
+   * matters - the measured roster tiers must not move because of an option
+   * nobody passed.
+   */
+  evaluator?: Evaluator;
   /** Evaluation parameters used to RANK moves; defaults to the hand-set ones. */
   evalParams?: EvalParams;
   /**
@@ -243,6 +255,7 @@ export function cachedPriors(
   s: GameState,
   actions: readonly Action[],
   keys: readonly string[],
+  compute: (s: GameState, actions: readonly Action[]) => number[] = policyPriors,
 ): number[] {
   let missing = false;
   for (const key of keys) {
@@ -252,7 +265,7 @@ export function cachedPriors(
     }
   }
   if (missing) {
-    const fresh = policyPriors(s, actions);
+    const fresh = compute(s, actions);
     for (let i = 0; i < keys.length; i++) {
       if (!cache.has(keys[i])) cache.set(keys[i], fresh[i]);
     }
@@ -314,6 +327,7 @@ export function ismctsSearch(
   const raceAware = options.raceAware ?? false;
   const params = options.evalParams ?? DEFAULT_EVAL_PARAMS;
   const leafParams = options.leafParams ?? params;
+  const evaluator = options.evaluator;
   const rng = makeRng(options.seed ?? (root.rngState ^ (root.turnCount * 2654435761)) >>> 0);
 
   const rootActions = legalActions(root);
@@ -324,6 +338,14 @@ export function ismctsSearch(
 
   const numPlayers = root.players.length;
   const tree = makeNode(root.current, numPlayers);
+  // With a network, its policy head replaces the heuristic everywhere the
+  // heuristic was consulted for an ordering. The root keeps the expensive
+  // full-turn search either way: there the held card is real, it is paid for
+  // exactly once, and it is the one place the extra accuracy is affordable.
+  const priorFn = evaluator
+    ? (st: GameState, acts: readonly Action[]): number[] =>
+        evaluatorPriors(evaluator, st, acts, st.players.length)
+    : policyPriors;
   const rootPriors = turnSearchPriors(root, rootActions, raceAware, params);
   const deadline = Date.now() + budgetMs;
   let iterations = 0;
@@ -360,7 +382,7 @@ export function ismctsSearch(
       const priors =
         node === tree && actions.length === rootPriors.length
           ? rootPriors
-          : cachedPriors(node.priors, s, actions, keys);
+          : cachedPriors(node.priors, s, actions, keys, priorFn);
 
       let chosen = 0;
       let bestScore = -Infinity;
@@ -397,7 +419,19 @@ export function ismctsSearch(
       if (expanded) break;
     }
 
-    const reward = rewardVector(isTerminal(s) ? returns(s) : rollout(s, rng, turnLimit, raceAware, params, leafParams));
+    // Three ways to value a leaf, in order of preference: the real result if
+    // the round ended, the network if we have one, and otherwise a truncated
+    // rollout. The network's output is ALREADY in reward space, which is the
+    // whole point of training it against `rewardVector`, so it must not be
+    // passed through `rewardVector` a second time.
+    let reward: number[];
+    if (isTerminal(s)) {
+      reward = rewardVector(returns(s));
+    } else if (evaluator) {
+      reward = evaluatorReward(evaluator, s, numPlayers);
+    } else {
+      reward = rewardVector(rollout(s, rng, turnLimit, raceAware, params, leafParams));
+    }
     for (const visited of path) {
       visited.visits += 1;
       for (let i = 0; i < numPlayers; i++) visited.totals[i] += reward[i];

@@ -16,7 +16,8 @@
     "fit:sweep": "vite-node src/ai/fit-sweep.ts -- --sweep",
     "horizon": "vite-node src/ai/horizon-arena.ts -- --horizon",
     "bench:nn": "vite-node src/ai/nn/bench.ts -- --bench-nn",
-    "selfplay": "node scripts/selfplay-parallel.mjs"
+    "selfplay": "node scripts/selfplay-parallel.mjs",
+    "train": "vite-node src/ai/nn/train-run.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

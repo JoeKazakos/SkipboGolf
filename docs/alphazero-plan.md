@@ -143,6 +143,24 @@ reject. Then re-rate the whole roster and ship the new tier. One or two
 generations probably capture most of the win, because what is being replaced is
 weak; the plan does not assume ten.
 
+## Pending: convert the roster from time budgets to iteration counts
+
+**Requested 2026-08-30, and not yet done** because it needs a quiet machine to
+measure and self-play was saturating all 18 cores.
+
+Self-play already uses a fixed simulation count rather than a clock, because a
+time budget made a replayed shard produce different data. The same argument
+applies to the shipped tiers, with an extra benefit: a tier's strength becomes
+a machine-independent property, so its Elo no longer depends on how fast the
+box that measured it happened to be. Today Vin is "40ms", which is a different
+opponent on a laptop than on a workstation.
+
+The plan: give each ISMCTS profile an `iterations` count as its primary knob,
+measured on an idle machine to match its current budget, and KEEP `budgetMs` as
+a safety cap. Iterations alone would mean a slow phone thinks for ten seconds;
+the cap bounds the wait while the iteration count sets the strength. Then
+re-rate the ladder, since the tiers will have shifted slightly.
+
 ## Running log
 
 Newest last. Record measurements, not impressions.
