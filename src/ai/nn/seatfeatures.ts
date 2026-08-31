@@ -1,4 +1,5 @@
 import { COLS, GRID_SIZE, SPECIAL_RANKS, type Rank } from '../../engine/cards';
+import { knownCards } from '../../engine/state';
 import type { GameState } from '../../engine/types';
 import { DEFAULT_EVAL_PARAMS, expectedScore } from '../heuristic';
 import { MAX_SEATS, toAbsoluteSeat } from './contracts';
@@ -180,4 +181,45 @@ export function seatOrder(viewer: number, numPlayers: number): number[] {
     order.push(offset < numPlayers ? toAbsoluteSeat(offset, viewer, numPlayers) : -1);
   }
   return order;
+}
+
+/** Total length of the shared-encoder input vector. */
+export const SHARED_INPUT = MAX_SEATS * SEAT_INPUT + GLOBAL_INPUT;
+
+const unseenScratch: number[] = new Array<number>(14).fill(0);
+
+/**
+ * Assembles the whole input for the shared encoder: seven seat blocks in
+ * mover-relative order, then the table block.
+ *
+ * Seat blocks come first and contiguously because the network slices them by
+ * offset - block `i` is `input[i * SEAT_INPUT ...]` - so the layout here and
+ * the slicing in sharednet.ts are one decision written in two places.
+ */
+export function encodeShared(
+  s: GameState,
+  viewer: number,
+  out?: Float32Array,
+  reveal = false,
+): Float32Array {
+  const f = out ?? new Float32Array(SHARED_INPUT);
+  const order = seatOrder(viewer, s.players.length);
+  for (let offset = 0; offset < MAX_SEATS; offset++) {
+    const seat = order[offset];
+    if (seat < 0) {
+      f.fill(0, offset * SEAT_INPUT, (offset + 1) * SEAT_INPUT);
+    } else {
+      encodeSeat(s, seat, viewer, f, offset * SEAT_INPUT, reveal);
+    }
+  }
+
+  // The unseen-rank census, from the authoritative list of what this viewer has
+  // been shown. Twelve of each rank, eighteen Skip-Bos.
+  unseenScratch.fill(0);
+  for (let rank = 1; rank <= 12; rank++) unseenScratch[rank] = 12;
+  unseenScratch[13] = 18;
+  for (const card of knownCards(s, viewer)) unseenScratch[card.rank] -= 1;
+
+  encodeGlobals(s, viewer, f, MAX_SEATS * SEAT_INPUT, unseenScratch);
+  return f;
 }
