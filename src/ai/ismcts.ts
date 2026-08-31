@@ -71,6 +71,17 @@ export interface IsmctsOptions {
    * nobody passed.
    */
   evaluator?: Evaluator;
+  /**
+   * Which half of the network to use.
+   *
+   * The two heads replace different things and can help or hurt independently:
+   * the value head displaces a truncated rollout at a leaf, the policy head
+   * displaces the one-ply heuristic prior during descent. Swapping both at once
+   * and measuring the pair cannot tell a gain in one from a loss in the other,
+   * which is exactly the confound that made an earlier experiment in this
+   * project uninterpretable.
+   */
+  evaluatorRole?: 'both' | 'value' | 'policy';
   /** Evaluation parameters used to RANK moves; defaults to the hand-set ones. */
   evalParams?: EvalParams;
   /**
@@ -328,6 +339,9 @@ export function ismctsSearch(
   const params = options.evalParams ?? DEFAULT_EVAL_PARAMS;
   const leafParams = options.leafParams ?? params;
   const evaluator = options.evaluator;
+  const role = options.evaluatorRole ?? 'both';
+  const useNetValue = evaluator != null && (role === 'both' || role === 'value');
+  const useNetPolicy = evaluator != null && (role === 'both' || role === 'policy');
   const rng = makeRng(options.seed ?? (root.rngState ^ (root.turnCount * 2654435761)) >>> 0);
 
   const rootActions = legalActions(root);
@@ -342,10 +356,11 @@ export function ismctsSearch(
   // heuristic was consulted for an ordering. The root keeps the expensive
   // full-turn search either way: there the held card is real, it is paid for
   // exactly once, and it is the one place the extra accuracy is affordable.
-  const priorFn = evaluator
-    ? (st: GameState, acts: readonly Action[]): number[] =>
-        evaluatorPriors(evaluator, st, acts, st.players.length)
-    : policyPriors;
+  const priorFn =
+    useNetPolicy && evaluator
+      ? (st: GameState, acts: readonly Action[]): number[] =>
+          evaluatorPriors(evaluator, st, acts, st.players.length)
+      : policyPriors;
   const rootPriors = turnSearchPriors(root, rootActions, raceAware, params);
   const deadline = Date.now() + budgetMs;
   let iterations = 0;
@@ -427,7 +442,7 @@ export function ismctsSearch(
     let reward: number[];
     if (isTerminal(s)) {
       reward = rewardVector(returns(s));
-    } else if (evaluator) {
+    } else if (useNetValue && evaluator) {
       reward = evaluatorReward(evaluator, s, numPlayers);
     } else {
       reward = rewardVector(rollout(s, rng, turnLimit, raceAware, params, leafParams));

@@ -96,8 +96,25 @@ async function main(): Promise<void> {
       })
     : null;
 
+  // Ablations: the value head alone, and the policy head alone, both using the
+  // calibrated evaluator. Reading these three against the control is the only
+  // way to tell a gain in one head from a loss in the other.
+  const ablations: Agent[] = env.NA_ABLATE
+    ? (['value', 'policy'] as const).map((role) =>
+        createIsmctsAgent({
+          name: role === 'value' ? 'NetValue' : 'NetPolicy',
+          evaluator: calibrated ?? evaluator,
+          evaluatorRole: role,
+          maxIterations: iterations,
+          budgetMs: 3_600_000,
+          seed: 4242,
+        }),
+      )
+    : [];
+
   const ladder: Agent[] = [
     ...(calibratedAgent ? [calibratedAgent] : []),
+    ...ablations,
     netAgent,
     control,
     ...opponents.map((id) => createAgentForProfile(profileById(id.trim()), 99)),
