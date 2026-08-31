@@ -54,7 +54,11 @@ async function main(): Promise<void> {
     skipped: result.skipped,
     seconds: (Date.now() - started) / 1000,
   });
-  if (typeof process !== 'undefined' && process?.stdout) process.stdout.write(`${line}\n`);
+  // The same marker convention arena-shard uses: the driver reads everything
+  // after it, so incidental stdout from a dependency cannot corrupt the result.
+  const marked = `__SHARD_RESULT__${line}`;
+  if (typeof process !== 'undefined' && process?.stdout) process.stdout.write(`${marked}\n`);
+  else console.log(marked);
 }
 
 void main();
