@@ -106,6 +106,36 @@ async function main(): Promise<void> {
   }
 
   const holdoutBatch = batchOf(holdout, holdout.map((_, i) => i).slice(0, 4096));
+
+  /**
+   * Held-out loss split by table size.
+   *
+   * One network serves tables of two through seven, conditioned on the table
+   * size it is given as a feature. Whether that TRANSFERS or merely interferes
+   * is an empirical question, and it is not one the aggregate loss can answer:
+   * a two-player table contributes about 34 samples per game against a
+   * seven-player table's 88, so the rare sizes are a small enough slice of the
+   * data to be quietly bad while the average looks fine.
+   *
+   * If a size lags badly here, the fix is to reweight the self-play mix, not
+   * to split the network - most of the skill (column cancellation, squares,
+   * which card to place where) is identical at every table size, so a size
+   * trained alone would see far less of the structure it shares.
+   */
+  const bySize = new Map<number, TrainSample[]>();
+  for (let i = 0; i < holdout.length && i < 20000; i++) {
+    const n = positionOf(holdout[i]).players.length;
+    const bucket = bySize.get(n) ?? [];
+    if (bucket.length < 1024) {
+      bucket.push(...batchOf(holdout, [i]));
+      bySize.set(n, bucket);
+    }
+  }
+  const sizes = [...bySize.keys()].sort((a, b) => a - b);
+  console.log(
+    `  holdout by table size: ${sizes.map((n) => `${n}p=${bySize.get(n)?.length}`).join(' ')}`,
+  );
+
   const startEpoch = trainer.epoch;
 
   for (let e = startEpoch; e < epochs; e++) {
@@ -136,6 +166,16 @@ async function main(): Promise<void> {
         `  (value ${heldOut.value.toFixed(4)}, policy ${heldOut.policy.toFixed(4)})` +
         `  ${seen} samples`,
     );
+
+    // Per-size breakdown occasionally: it is the only signal that says whether
+    // one network really serves every table size or just the common one.
+    if ((e + 1) % 5 === 0 || e + 1 === epochs) {
+      const parts = sizes.map((n) => {
+        const l = trainer.evaluateLoss(bySize.get(n) as TrainSample[]);
+        return `${n}p ${l.total.toFixed(3)}`;
+      });
+      console.log(`         by size: ${parts.join('  ')}`);
+    }
 
     await writeFileAtomic(join(ckptDir, checkpointName(trainer.epoch)), encodeCheckpoint(trainer, `gen${generation}`));
   }
