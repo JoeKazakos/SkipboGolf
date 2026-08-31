@@ -18,7 +18,10 @@ import { encodeShared, GLOBAL_INPUT, SEAT_INPUT, seatOrder, SHARED_INPUT } from 
  * play tells them what is under their own cards - the information a model could
  * exploit is what OTHER players' choices reveal.
  */
-export function createBeliefProvider(net: Net): (s: GameState, viewer: number) => Beliefs {
+export function createBeliefProvider(
+  net: Net,
+  temperature = 1,
+): (s: GameState, viewer: number) => Beliefs {
   const input = new Float32Array(SEAT_INPUT + GLOBAL_INPUT);
   const shared = new Float32Array(SHARED_INPUT);
 
@@ -34,8 +37,15 @@ export function createBeliefProvider(net: Net): (s: GameState, viewer: number) =
       input.set(shared.subarray(MAX_SEATS * SEAT_INPUT), SEAT_INPUT);
       const p = net.forward(input).policy;
       // Indexed by rank, so index 0 is unused and rank r reads at r.
+      // Tempered: w^t interpolates between a flat prior at t=0 and the model's
+      // full confidence at t=1. The model beats uniform by 22.5% of
+      // cross-entropy, which is real but not a lot, and a belief held more
+      // confidently than it deserves is worse than no belief - the search stops
+      // hedging over worlds it should still be hedging over.
       const weight = new Array<number>(14).fill(0);
-      for (let r = 1; r <= 13; r++) weight[r] = p[r - 1];
+      for (let r = 1; r <= 13; r++) {
+        weight[r] = temperature === 1 ? p[r - 1] : Math.pow(Math.max(1e-9, p[r - 1]), temperature);
+      }
       beliefs[seat] = weight;
     }
     return beliefs;
@@ -44,10 +54,11 @@ export function createBeliefProvider(net: Net): (s: GameState, viewer: number) =
 
 export async function loadBeliefProvider(
   path = 'training/inference/hidden-hand.bin',
+  temperature = 1,
 ): Promise<(s: GameState, viewer: number) => Beliefs> {
   const fs = await checkpointFs();
   const meta = JSON.parse(
     new TextDecoder().decode(fs.readFileSync(path.replace(/\.bin$/, '.meta.json'))),
   ) as WeightsMeta;
-  return createBeliefProvider(deserializeWeights(fs.readFileSync(path), meta));
+  return createBeliefProvider(deserializeWeights(fs.readFileSync(path), meta), temperature);
 }

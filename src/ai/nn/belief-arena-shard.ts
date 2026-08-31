@@ -30,14 +30,23 @@ async function main(): Promise<void> {
   const seats = Number(env.BA_SEATS ?? 3);
   const weights = env.BA_WEIGHTS ?? 'training/inference/hidden-hand.bin';
 
-  const beliefProvider = await loadBeliefProvider(weights);
   const common = { maxIterations: iterations, budgetMs: 3_600_000, seed: 4242 } as const;
+  const temps = (env.BA_TEMPS ?? '1').split(',').map(Number);
 
-  const ladder: Agent[] = [
-    createIsmctsAgent({ ...common, name: 'Belief', beliefProvider }),
-    createIsmctsAgent({ ...common, name: 'Uniform' }),
-    createAgentForProfile(profileById('ada'), 99),
-  ];
+  // Temperature 0 IS the uniform deal, so it doubles as the control and the
+  // sweep's own zero point rather than being a separately-configured agent.
+  const ladder: Agent[] = [createIsmctsAgent({ ...common, name: 'Uniform' })];
+  for (const t of temps) {
+    if (t <= 0) continue;
+    ladder.push(
+      createIsmctsAgent({
+        ...common,
+        name: `T${Math.round(t * 100)}`,
+        beliefProvider: await loadBeliefProvider(weights, t),
+      }),
+    );
+  }
+  ladder.push(createAgentForProfile(profileById('ada'), 99));
 
   const out: unknown[] = [];
   for (let g = from; g < to; g++) {
