@@ -99,6 +99,17 @@ export interface IsmctsOptions {
    */
   evaluatorMix?: number;
   /**
+   * Supplies per-seat beliefs about what opponents are holding, used to weight
+   * the deal instead of sampling the unseen cards uniformly.
+   *
+   * Called ONCE per search, not once per iteration. `determinize` only ever
+   * runs on the root, and the root's information state does not change during
+   * a search, so the beliefs are fixed for its whole duration. That is what
+   * makes a model affordable here where the value head was not: seven forward
+   * passes spread over hundreds of iterations rather than one per leaf.
+   */
+  beliefProvider?: (s: GameState, viewer: number) => Beliefs;
+  /**
    * Search the TRUE position instead of sampling a world from what the player
    * can see. A cheat, for measurement only.
    *
@@ -155,7 +166,45 @@ export function actionKey(a: Action): string {
  * Because the engine reveals cards as the round goes on, that multiset shrinks
  * and the sampled worlds sharpen. The AI is, in effect, counting cards.
  */
-export function determinize(s: GameState, viewer: number, rng: Rng): GameState {
+/**
+ * Per-seat, per-rank weights for the deal: `beliefs[seat][rank]` is how likely
+ * that seat is to be holding an unseen card of that rank, relative to the rest.
+ *
+ * `undefined` keeps the uniform deal, which is what every measurement in this
+ * project so far was taken against.
+ */
+export type Beliefs = readonly (readonly number[] | undefined)[] | undefined;
+
+/**
+ * Draws one index from `pool` with probability proportional to `weight`, then
+ * removes it. Falls back to uniform when the weights are degenerate, so a bad
+ * model degrades to today's behaviour rather than to a crash or a bias.
+ */
+function takeWeighted(pool: Rank[], weight: readonly number[] | undefined, rng: Rng): Rank {
+  if (weight == null || pool.length === 1) return pool.pop() as Rank;
+  let total = 0;
+  for (const rank of pool) total += Math.max(1e-6, weight[rank] ?? 1);
+  if (!(total > 0)) return pool.pop() as Rank;
+
+  let roll = rng.next() * total;
+  for (let i = 0; i < pool.length; i++) {
+    roll -= Math.max(1e-6, weight[pool[i]] ?? 1);
+    if (roll <= 0) {
+      const picked = pool[i];
+      pool[i] = pool[pool.length - 1];
+      pool.pop();
+      return picked;
+    }
+  }
+  return pool.pop() as Rank;
+}
+
+export function determinize(
+  s: GameState,
+  viewer: number,
+  rng: Rng,
+  beliefs?: Beliefs,
+): GameState {
   const t = clone(s);
 
   const counts = deckRankCounts();
@@ -183,8 +232,37 @@ export function determinize(s: GameState, viewer: number, rng: Rng): GameState {
     return card;
   };
 
-  for (const player of t.players) {
-    for (const slot of player.grid) if (!slot.faceUp) slot.card = take();
+  if (beliefs == null) {
+    for (const player of t.players) {
+      for (const slot of player.grid) if (!slot.faceUp) slot.card = take();
+    }
+  } else {
+    // Weighted deal for the FACE-DOWN GRID CARDS only. Those are what an
+    // opponent's choices actually tell you about, and they are what decides
+    // the score; the draw pile order and buried discards are not something any
+    // amount of watching reveals, so they stay uniform.
+    //
+    // The pool is consumed as it is dealt, so the multiset is preserved exactly
+    // and the resulting world is as valid as a uniform one - only its
+    // probability under the sampler changes.
+    const pool = dealt.slice(cursor);
+    const remainingIds = unseenIds.slice(cursor);
+    let idAt = 0;
+    for (let p = 0; p < t.players.length; p++) {
+      const weight = beliefs[p];
+      for (const slot of t.players[p].grid) {
+        if (slot.faceUp) continue;
+        slot.card = { rank: takeWeighted(pool, weight, rng), id: remainingIds[idAt++] };
+      }
+    }
+    // Whatever the weighted deal did not consume goes back for the uniform
+    // stages below, which keep using `take` over the original array.
+    const consumed = idAt;
+    for (let i = 0; i < pool.length; i++) dealt[cursor + consumed + i] = pool[i];
+    for (let i = 0; i < remainingIds.length - consumed; i++) {
+      unseenIds[cursor + consumed + i] = remainingIds[consumed + i];
+    }
+    cursor += consumed;
   }
   for (const player of t.players) {
     // Only the top three of each pile are public (section 4).
@@ -366,6 +444,8 @@ export function ismctsSearch(
   const params = options.evalParams ?? DEFAULT_EVAL_PARAMS;
   const leafParams = options.leafParams ?? params;
   const evaluator = options.evaluator;
+  // Once, before the loop: see the note on beliefProvider.
+  const beliefs = options.beliefProvider ? options.beliefProvider(root, player) : undefined;
   const role = options.evaluatorRole ?? 'both';
   const mix = options.evaluatorMix ?? 1;
   const useNetValue = evaluator != null && (role === 'both' || role === 'value') && mix > 0;
@@ -401,7 +481,7 @@ export function ismctsSearch(
 
     // Perfect information skips the resampling entirely: the "sampled world"
     // is the real one. Everything downstream is unchanged.
-    let s = options.perfectInfo ? clone(root) : determinize(root, player, rng);
+    let s = options.perfectInfo ? clone(root) : determinize(root, player, rng, beliefs);
     let node = tree;
     const path: Node[] = [node];
 
