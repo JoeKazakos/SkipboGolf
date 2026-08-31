@@ -360,3 +360,52 @@ Newest last. Record measurements, not impressions.
   Per table size it shows the same healthy shape as the flat network (2p 2.031
   rising to 7p 2.248), which is the larger action space rather than
   undertraining, so the shared encoder transfers across counts as intended.
+
+- **2026-08-31 - the pooled ladder, and where generation 0 actually landed.**
+
+  Joe's point, and it fixed a real reporting flaw: `summarise` recenters every
+  pool on 1500, so the same rollout control read 1513, 1544, 1535 and 1574
+  across four separate arenas. Cross-run Elo here was never comparable; mean
+  score, being points in the game, always was. Everything now plays in one pool.
+
+  240 games, one rating fit, 400 simulations for every network row:
+
+  | agent | elo | mean score |
+  | ----- | --- | ---------- |
+  | Rollout (control) | 1636 | 2.51 |
+  | Rook | 1617 | 2.18 |
+  | Ada | 1608 | 3.48 |
+  | **Gen0** flat, masked, calibrated | **1594** | 3.49 |
+  | Gen0Rev flat, reveal | 1543 | 6.17 |
+  | Gen0ShRev shared, reveal | 1540 | 7.21 |
+  | Vin | 1525 | 6.46 |
+  | UntrainedSh | 1495 | 8.54 |
+  | Nel | 1435 | 10.44 |
+  | UntrainedOff | 1260 | 20.51 |
+  | Untrained | 1248 | 21.48 |
+
+  **Training works.** Gen0 is +346 Elo at 7.4 sd over the same network with
+  random weights. That was never in evidence before this run.
+
+  **Nothing beats the control.** Gen0 comes closest at -42 Elo and +0.98 mean
+  score, both about 0.9 sd - parity, not a win. Every variant meant to improve
+  on it is worse: reveal -93 Elo, shared -96, both over 3 sd on mean score.
+
+  **The best configuration is the first one built** - flat encoder, masked,
+  value calibrated by 2.2x. Both later ideas made it worse.
+
+  Three hypotheses were offered for why the untrained SHARED network rates 247
+  Elo above the untrained flat one, and all three were wrong: smoother outputs
+  (their global spreads match, 0.0356 against 0.0351), a value mean offset (the
+  shifted control moved 12 Elo, 0.2 sd), and smaller sibling swings (the shared
+  net's sibling spread is LARGER, 0.0347 against 0.0210). It is unexplained.
+  Since it concerns two untrained networks it does not block anything, but the
+  pattern - three confident mechanisms, three refutations - is the honest
+  summary of this whole milestone's diagnosis record.
+
+  **Where this leaves the value head.** Four attempts, one parity result, no
+  win. Meanwhile the perfect-information probe puts 310 Elo at 7.6 sd on the
+  table and locates all of it in hidden-information handling. `determinize`
+  still samples the unseen cards uniformly and ignores everything an opponent's
+  choices reveal; someone taking a 9 off a discard pile probably wants 9s. That
+  is the lever the measurement actually points at, and it is untouched.

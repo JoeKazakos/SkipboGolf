@@ -44,6 +44,17 @@ export interface EvaluatorCalibration {
    * Never set this for anything reasoning about the real position.
    */
   reveal?: boolean;
+  /**
+   * Added to every value output, after any scaling.
+   *
+   * A constant offset looks harmless - it shifts all of a node's children
+   * equally and cannot reorder them - but it is not, because TERMINAL leaves do
+   * not pass through here. They back up a real reward, which averages about
+   * 0.64. A network whose values centre on 0.51 therefore makes every line that
+   * ends the round look better than every line that continues, which is a
+   * systematic distortion rather than a constant.
+   */
+  valueOffset?: number;
 }
 
 export function createNetEvaluator(
@@ -61,7 +72,8 @@ export function createNetEvaluator(
   const scale = calibration.valueScale ?? 1;
   const center = calibration.valueCenter ?? 0.5;
   const reveal = calibration.reveal ?? false;
-  if (scale === 1) {
+  const offset = calibration.valueOffset ?? 0;
+  if (scale === 1 && offset === 0) {
     return {
       name,
       evaluate(s: GameState, viewer: number): NetOutput {
@@ -85,7 +97,7 @@ export function createNetEvaluator(
       encodeFeatures(s, viewer, buffer, reveal);
       const raw = net.forward(buffer);
       for (let i = 0; i < calibrated.value.length; i++) {
-        const stretched = center + (raw.value[i] - center) * scale;
+        const stretched = center + (raw.value[i] - center) * scale + offset;
         // Clamped: the reward space is [0,1] and the search assumes it.
         calibrated.value[i] = stretched < 0 ? 0 : stretched > 1 ? 1 : stretched;
       }

@@ -83,6 +83,20 @@ async function buildLadder(iterations: number): Promise<Agent[]> {
     }),
   );
 
+  // The decisive control: the SAME untrained network, shifted so its values
+  // centre where real terminal rewards do. If this alone recovers most of the
+  // gap to the trained network, then training mostly fixed a mean offset rather
+  // than learning to evaluate.
+  ladder.push(
+    createIsmctsAgent({
+      ...common,
+      name: 'UntrainedOff',
+      evaluator: createNetEvaluator(Net.create(DEFAULT_ARCH, 987654), 'UntrainedOff', {
+        valueOffset: 0.6436 - 0.5124,
+      }),
+    }),
+  );
+
   const flat = 'training/gen000/weights.bin';
   if (fs.existsSync(flat)) {
     ladder.push(
