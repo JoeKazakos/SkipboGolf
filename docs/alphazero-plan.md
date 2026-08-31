@@ -74,11 +74,11 @@ keeps the swap a clear win.
 
 | # | Milestone | Status |
 | - | --------- | ------ |
-| M0 | Prior caching and a repeatable benchmark harness | not started |
-| M1 | Feature encoding and network runtime | not started |
-| M2 | Training loop and checkpointing | not started |
-| M3 | Self-play data generation, resumable | not started |
-| M4 | Network-backed ISMCTS agent | not started |
+| M0 | Prior caching and a repeatable benchmark harness | **done**, ladder-neutral |
+| M1 | Feature encoding and network runtime | **done**, 343 features, 5.96us |
+| M2 | Training loop and checkpointing | **done**, gradient-checked |
+| M3 | Self-play data generation, resumable | **done**, 19.6 samples/s |
+| M4 | Network-backed ISMCTS agent | **done**, behind an option |
 | M5 | Policy head first, keeping heuristic rollouts | not started |
 | M6 | Value head, generation loop, roster re-rating | not started |
 
@@ -161,6 +161,19 @@ a safety cap. Iterations alone would mean a slow phone thinks for ten seconds;
 the cap bounds the wait while the iteration count sets the strength. Then
 re-rate the ladder, since the tiers will have shifted slightly.
 
+## How to run it
+
+```
+npm run bench                       # component costs and per-iteration cost
+npm run selfplay -- --gen 0 --games 6000 --iterations 400 --shards 240
+TR_GENERATION=0 TR_EPOCHS=40 npm run train
+NA_WEIGHTS=training/gen000/weights.bin NA_GAMES=200 npm run net:arena
+```
+
+All three are resumable or repeatable. Self-play skips shards already on disk,
+training resumes from the newest checkpoint in the generation's directory, and
+the arena is a fresh measurement every time.
+
 ## Running log
 
 Newest last. Record measurements, not impressions.
@@ -209,3 +222,37 @@ Newest last. Record measurements, not impressions.
      playing strength measured in the arena. This is now the second time in
      this project that a large improvement in prediction accuracy came with a
      large loss in strength.
+
+- **2026-08-30 - M0 through M4 landed; generation 0 self-play started.**
+
+  M0, prior caching. Descent cost per iteration fell from 147/174/319us at
+  100/1000/4000ms to 56/56/64us. The absolute gain matters less than the shape:
+  cost used to grow 2.2x with tree depth and now grows 1.14x, so the win is 5x
+  at Sage's budget and almost nothing at Vin's. A 480-game ladder found no
+  regression - the four ISMCTS tiers moved +34, +29, +23 and -8 against error
+  bars near 33, with mean scores agreeing.
+
+  M1, feature encoding. 343 features, 5.96us, verified independently over 6,145
+  (position, viewer, world) triples: no leak, no non-finite values.
+
+  M2, network and training. 63,898 parameters at [128, 128]. The gradient check
+  initially reported 0.44 relative error and was WRONG: a central difference
+  across a ReLU kink measures a chord over a corner. Excluding coordinates
+  whose perturbation flips an activation, the error is 0.00046.
+
+  M3, self-play. Measured 19.6 samples/s across 18 workers at 400 simulations
+  per decision, so about **14 hours per million samples**. The pilot produced
+  4,801 samples from 72 games - about 67 samples per game.
+
+  M4, the network in the search. Behind `IsmctsOptions.evaluator`; with it
+  absent the search is bit-identical, which the roster's ratings depend on.
+
+  Pipeline validated end to end. Training on the 72-game pilot drove policy
+  loss from 2.68 to 1.76 against log(19) = 2.94 for a uniform prior, so the
+  policy head learns. Value loss barely moved, which is exactly what 72 games
+  should look like: **the value head needs independent OUTCOMES, and every
+  sample within one game shares one.** That is the number to watch as the real
+  generation lands - 6,000 games rather than 72.
+
+  Generation 0 running: 6,000 games, 400 simulations, 240 shards, expected
+  ~400k samples in about 5.7 hours.
