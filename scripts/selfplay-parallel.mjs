@@ -88,11 +88,12 @@ function runShard(shard) {
       finished += 1;
       const elapsed = (Date.now() - started) / 1000;
       const done = results.length + 1;
-      // Divide the remaining work by the worker count. Without that the eta
-      // assumes shards run one after another and overstates by the degree of
-      // parallelism - it read 28 hours for a run the pilot rate put at six.
-      const perShard = elapsed / done;
-      const eta = (perShard * (shards - done)) / workers;
+      // `elapsed / done` is already wall clock per completed shard, and with W
+      // shards running at once that quantity ALREADY carries the parallelism.
+      // Dividing by the worker count again underestimates by exactly W - which
+      // this did, reading 3 minutes for an hour of work, after an earlier
+      // version overestimated by the same factor for the mirror-image reason.
+      const eta = (elapsed / done) * (shards - done);
       console.log(
         `[${finished}/${shards}] shard ${shard}: ${result.samples} samples` +
           `${result.skipped ? ' (already on disk)' : ` in ${result.seconds.toFixed(0)}s`}` +
