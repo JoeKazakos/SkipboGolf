@@ -330,3 +330,33 @@ Newest last. Record measurements, not impressions.
   63,898 multiply-accumulates in 26us implies 2.5 GMAC/s, which scalar
   JavaScript over Float32Array does not reach. The saving against a 300us
   rollout is therefore about 1.6x, not 10x.
+
+- **2026-08-31 - the shared per-seat architecture, trained on the same data.**
+
+  Joe's design: one sub-network reads a single seat's 181 features and emits a
+  20-number embedding; it is applied to all seven seats with the same weights,
+  and the embeddings plus 63 table features feed the head. It corrects a real
+  flaw in the first encoder, which gave the viewer's grid 140 raw features and
+  each opponent only 16 hand-picked summaries - so the network could learn to
+  read its own play area and never anyone else's, and my choice of summaries
+  was a ceiling on what it could discover about opponents.
+
+  37,902 parameters against the flat network's 63,898, and the sub-network sees
+  seven grids per position rather than one.
+
+  Trained on the identical 390,443 positions with the identical held-out split.
+  After 30 epochs, with the reveal encoder:
+
+  | network | value loss | policy loss |
+  | ------- | ---------- | ----------- |
+  | flat, reveal, 40 epochs   | 0.6381 | 1.5541 |
+  | shared, reveal, 30 epochs | 0.6350 | 1.5572 |
+
+  The shared network has the better value head - the first architecture change
+  in this project to move that number the right way - on fewer parameters and
+  fewer epochs. Whether it converts into playing strength is the arena's
+  question, and every previous better-predictor has failed it.
+
+  Per table size it shows the same healthy shape as the flat network (2p 2.031
+  rising to 7p 2.248), which is the larger action space rather than
+  undertraining, so the shared encoder transfers across counts as intended.
