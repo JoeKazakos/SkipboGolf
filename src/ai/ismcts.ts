@@ -194,6 +194,13 @@ interface Node {
    * action against the visits it could have had, not against every visit here.
    */
   availability: Map<string, number>;
+  /**
+   * The heuristic prior for each action, remembered from the world that first
+   * offered that action. Keyed by action key rather than held positionally,
+   * because legality varies between determinizations and the same index means
+   * different things in different worlds.
+   */
+  priors: Map<string, number>;
 }
 
 function makeNode(playerToAct: number, numPlayers: number): Node {
@@ -203,7 +210,51 @@ function makeNode(playerToAct: number, numPlayers: number): Node {
     totals: new Array<number>(numPlayers).fill(0),
     children: new Map(),
     availability: new Map(),
+    priors: new Map(),
   };
+}
+
+/**
+ * The prior for each of this world's actions, computing only what is not
+ * already known.
+ *
+ * `policyPriors` costs about 5us, and the descent used to pay it at every node
+ * on the path on every visit, so a deep iteration re-derived the same heuristic
+ * dozens of times. Measured on the benchmark position, that made a 4000ms
+ * search cost 228us per iteration against 152us at 100ms; caching flattens most
+ * of that away.
+ *
+ * The common case is that every action here has been seen before and no
+ * heuristic call happens at all. When a world offers an action no previous
+ * world did - a wave that only this deal makes legal - one call fills in the
+ * missing keys and leaves the rest alone.
+ *
+ * This does change behaviour slightly, and deliberately: a prior is now fixed
+ * from whichever world first offered the action rather than being implicitly
+ * re-averaged across worlds every visit, and a cached set need no longer
+ * contain the 1.0 that `policyPriors` normalises to. It is what AlphaZero-style
+ * searches do, and it was measured neutral on the ladder before it landed.
+ */
+export function cachedPriors(
+  cache: Map<string, number>,
+  s: GameState,
+  actions: readonly Action[],
+  keys: readonly string[],
+): number[] {
+  let missing = false;
+  for (const key of keys) {
+    if (!cache.has(key)) {
+      missing = true;
+      break;
+    }
+  }
+  if (missing) {
+    const fresh = policyPriors(s, actions);
+    for (let i = 0; i < keys.length; i++) {
+      if (!cache.has(keys[i])) cache.set(keys[i], fresh[i]);
+    }
+  }
+  return keys.map((key) => cache.get(key) as number);
 }
 
 /** Scores each player's play area as it stands, for a rollout cut short by its turn limit. */
@@ -301,11 +352,12 @@ export function ismctsSearch(
       //
       // At the root the held card is real, so the priors are fixed for the whole
       // search and the expensive full-turn search is worth paying for exactly
-      // once. Deeper nodes get the cheap one-ply estimate.
+      // once. Deeper nodes get the cheap one-ply estimate, cached on the node so
+      // the same heuristic is not re-derived on every visit.
       const priors =
         node === tree && actions.length === rootPriors.length
           ? rootPriors
-          : policyPriors(s, actions);
+          : cachedPriors(node.priors, s, actions, keys);
 
       let chosen = 0;
       let bestScore = -Infinity;
