@@ -2,7 +2,9 @@ import { applyAction, createInitialState, isTerminal, legalActions, returns } fr
 import type { Action, GameState } from '../../engine/types';
 import { actionKey, ismctsSearch, rewardVector } from '../ismcts';
 import { checkpointFs } from './checkpoint';
-import { MAX_SEATS, POLICY_SIZE, policyIndex, toRelativeSeat } from './contracts';
+import { MAX_SEATS, POLICY_SIZE, policyIndex, toRelativeSeat, type Evaluator } from './contracts';
+import { createNetEvaluator } from './evaluator';
+import { deserializeWeights, type WeightsMeta } from './serialize';
 import { decodePosition, encodePosition } from './positions';
 
 /**
@@ -42,6 +44,16 @@ export interface SelfPlayConfig {
    * right way round for training data.
    */
   iterations: number;
+  /**
+   * Weights for the network that PLAYS these games.
+   *
+   * Generation 0 leaves this unset and bootstraps from ISMCTS with heuristic
+   * rollouts. From generation 1 on it points at the previous generation's
+   * network, and that is what makes this AlphaZero rather than a single round
+   * of supervised imitation: each generation's data is produced by a player
+   * that the previous generation's data made stronger.
+   */
+  weightsPath?: string;
   /** Table sizes to sample from, so the network sees every supported size. */
   playerCounts: readonly number[];
   seed: number;
@@ -88,6 +100,7 @@ export function playSelfPlayGame(
   seed: number,
   numPlayers: number,
   iterations: number,
+  evaluator?: Evaluator,
 ): RawSample[] {
   let s = createInitialState(seed, numPlayers);
   const pending: PendingSample[] = [];
@@ -108,6 +121,7 @@ export function playSelfPlayGame(
         maxIterations: iterations,
         budgetMs: 3_600_000,
         seed: seed ^ (guard * 2654435761),
+        ...(evaluator ? { evaluator } : {}),
       });
       const visits = new Float32Array(POLICY_SIZE);
       let total = 0;
@@ -153,6 +167,23 @@ export function playSelfPlayGame(
     });
   }
   return samples;
+}
+
+/**
+ * Loads a network from disk for self-play, with its sidecar.
+ *
+ * Separate from the browser loader in load.ts because that one fetches over
+ * HTTP; this reads files. Both refuse a weights file whose architecture or
+ * checksum does not match, because silently loading the wrong shape would
+ * produce a generation of data played by a network nobody could account for.
+ */
+export async function loadEvaluatorFromDisk(path: string, name = 'net'): Promise<Evaluator> {
+  const fs = await checkpointFs();
+  const metaPath = path.replace(/\.bin$/, '.meta.json');
+  if (!fs.existsSync(path)) throw new Error(`self-play: no weights at ${path}`);
+  if (!fs.existsSync(metaPath)) throw new Error(`self-play: no sidecar at ${metaPath}`);
+  const meta = JSON.parse(new TextDecoder().decode(fs.readFileSync(metaPath))) as WeightsMeta;
+  return createNetEvaluator(deserializeWeights(fs.readFileSync(path), meta), name);
 }
 
 /** Deterministic per-game seed, so a shard replays identically. */
@@ -294,12 +325,22 @@ export async function runShard(
   }
 
   fs.mkdirSync(join(generationDir(config, root), 'shards'), { recursive: true });
+  // Loaded once per shard rather than per game: the weights do not change
+  // within a generation, and a shard is 25 games.
+  const evaluator = config.weightsPath
+    ? await loadEvaluatorFromDisk(config.weightsPath, 'selfplay')
+    : undefined;
   const indices = gamesForShard(config, shard, shards);
   const samples: RawSample[] = [];
   for (let i = 0; i < indices.length; i++) {
     const index = indices[i];
     samples.push(
-      ...playSelfPlayGame(gameSeed(config, index), playersForGame(config, index), config.iterations),
+      ...playSelfPlayGame(
+        gameSeed(config, index),
+        playersForGame(config, index),
+        config.iterations,
+        evaluator,
+      ),
     );
     onProgress?.(i + 1, indices.length);
   }

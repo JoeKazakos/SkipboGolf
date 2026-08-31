@@ -69,7 +69,15 @@ export interface OpponentProfile {
   readonly meanScore: number | null;
   /** Share of ladder games won. */
   readonly winRate: number | null;
-  /** Per-decision search budget, for the ISMCTS tiers only. */
+  /**
+   * Wall-clock CAP per decision, not the tier's strength setting.
+   *
+   * `iterations` sets how well the tier plays; this only bounds how long a
+   * player waits for it on a slow device. Set with headroom over what the
+   * simulation count costs here, so it binds on a phone rather than routinely
+   * on a desktop - a cap that binds in normal play is just a time budget again,
+   * with all the machine-dependence that was the reason to leave one.
+   */
   readonly budgetMs?: number;
   /** Blunder probability, for the blundering tier only. */
   readonly epsilon?: number;
@@ -100,6 +108,11 @@ export interface OpponentProfile {
 /**
  * The opponents you can seat, weakest first by measured rating.
  *
+ * RATINGS BELOW ARE STALE as of 2026-08-31: the searching tiers were converted
+ * from millisecond budgets to simulation counts (see note 3), which changes how
+ * strongly they play, most of all at large tables. Re-run the ladder before
+ * trusting these numbers.
+ *
  * Measured 2026-08-30 by `node scripts/arena-parallel.mjs --games 480 --roster`
  * (480 games, ~411 per agent, 16 minutes across 18 processes), re-run after
  * priors were cached at node expansion. Re-run it after changing any tier.
@@ -126,9 +139,24 @@ export interface OpponentProfile {
  *    because they genuinely cannot be told apart; do not reorder them on one
  *    run's evidence.
  *
- * 2. Search shows sharply diminishing returns at the top. Ada at 150ms to Sage
- *    at 2000ms, a thirteenfold increase, buys about 100 Elo, and Ada, Rook and
+ * 2. Search shows sharply diminishing returns at the top. Ada to Sage, a
+ *    thirteenfold increase in thinking, buys about 100 Elo, and Ada, Rook and
  *    Sage stay within a standard error or two of each other.
+ *
+ * 3. The searching tiers are set by SIMULATION COUNT, with `budgetMs` kept only
+ *    as a responsiveness cap. A millisecond budget made a tier's strength a
+ *    property of the machine rather than of the tier - and worse, of the table
+ *    size. Measured 2026-08-31, one budget bought wildly different amounts of
+ *    thinking depending on the position:
+ *
+ *      150ms   670 simulations at a 2-player table, 168 at a 7-player one
+ *      2000ms  10,148 at 2 players, 2,169 at 7
+ *
+ *    So every tier used to play WEAKEST at the biggest tables, which is exactly
+ *    backwards: more opponents is where thinking matters most. The counts below
+ *    are what each old budget bought at a 6-player table, the common case, so a
+ *    tier now plays at one strength everywhere and its rating is a fact about
+ *    the tier rather than about the box that measured it.
  */
 export const ROSTER: readonly OpponentProfile[] = [
   {
@@ -161,7 +189,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Vin',
     blurb: 'Looks a little way ahead, though not far enough to show for it.',
     kind: 'ismcts',
-    budgetMs: 40,
+    iterations: 50,
+    budgetMs: 100,
     strength: 3,
     tier: 'Steady',
     meanScore: 6.59,
@@ -186,7 +215,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Ada',
     blurb: 'Searches properly. A serious opponent.',
     kind: 'ismcts',
-    budgetMs: 150,
+    iterations: 200,
+    budgetMs: 400,
     strength: 4,
     tier: 'Strong',
     meanScore: 4.13,
@@ -199,7 +229,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Rook',
     blurb: 'Takes her time and rarely wastes a turn.',
     kind: 'ismcts',
-    budgetMs: 600,
+    iterations: 800,
+    budgetMs: 1200,
     strength: 4,
     tier: 'Strong',
     meanScore: 2.38,
@@ -212,7 +243,8 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Sage',
     blurb: 'Thinks hard about every card. Expect to lose.',
     kind: 'ismcts',
-    budgetMs: 2000,
+    iterations: 2700,
+    budgetMs: 3000,
     strength: 5,
     tier: 'Expert',
     meanScore: 1.29,

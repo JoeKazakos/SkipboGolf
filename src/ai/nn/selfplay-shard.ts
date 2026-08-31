@@ -34,6 +34,8 @@ async function main(): Promise<void> {
       ? env.SP_PLAYERS.split(',').map(Number)
       : DEFAULT_SELFPLAY.playerCounts,
     seed: Number(env.SP_SEED ?? DEFAULT_SELFPLAY.seed),
+    // Generation 1 onward plays with the previous generation's network.
+    ...(env.SP_WEIGHTS ? { weightsPath: env.SP_WEIGHTS } : {}),
   };
   const shard = Number(env.SP_SHARD ?? 0);
   const shards = Number(env.SP_SHARDS ?? 1);
