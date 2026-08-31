@@ -18,7 +18,8 @@
     "bench:nn": "vite-node src/ai/nn/bench.ts -- --bench-nn",
     "selfplay": "node scripts/selfplay-parallel.mjs",
     "train": "vite-node src/ai/nn/train-run.ts",
-    "net:arena": "vite-node src/ai/nn/net-arena.ts"
+    "net:arena": "vite-node src/ai/nn/net-arena.ts",
+    "net:diag": "vite-node src/ai/nn/value-diag.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
