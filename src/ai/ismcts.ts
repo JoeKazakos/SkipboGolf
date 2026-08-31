@@ -82,6 +82,17 @@ export interface IsmctsOptions {
    * project uninterpretable.
    */
   evaluatorRole?: 'both' | 'value' | 'policy';
+  /**
+   * Search the TRUE position instead of sampling a world from what the player
+   * can see. A cheat, for measurement only.
+   *
+   * It answers the one question that bounds every other effort here: how much
+   * is left to win. An agent that sees the hidden cards is an upper bound on
+   * what any amount of better inference, evaluation or search could buy, so if
+   * it barely beats Sage then this game's ceiling is the constraint and no
+   * network will move it. Never expose this to a seated opponent.
+   */
+  perfectInfo?: boolean;
   /** Evaluation parameters used to RANK moves; defaults to the hand-set ones. */
   evalParams?: EvalParams;
   /**
@@ -371,7 +382,9 @@ export function ismctsSearch(
     if (Date.now() >= deadline) break;
     iterations += 1;
 
-    let s = determinize(root, player, rng);
+    // Perfect information skips the resampling entirely: the "sampled world"
+    // is the real one. Everything downstream is unchanged.
+    let s = options.perfectInfo ? clone(root) : determinize(root, player, rng);
     let node = tree;
     const path: Node[] = [node];
 
