@@ -635,3 +635,47 @@ decided none of them.
   buys 25 Elo at half a standard error. There is very little left on the table
   for any method, learned or otherwise, and that is a finding rather than a
   failure - it is the thing that should have been measured on day one.
+
+- **2026-08-31 - the scaled attempt: 108k parameters, 387k pooled positions.**
+
+  The earlier conclusion was reached at a scale that did not earn it: 64k
+  parameters on about 110k samples per generation. Self-play data does not go
+  stale, so the four 3-player generations pool into 387,278 samples at no extra
+  compute, and the network was sized up 1.7x.
+
+  Training, 20 epochs:
+
+    policy loss  1.5333 -> 1.3625   best in the project, against 1.4566 before
+    value loss   0.6419 -> 0.6384   identical to every previous run
+
+  Arena, equal simulations, 480 games (small network in brackets):
+
+  | mix | elo vs control | mean score |
+  | --- | -------------- | ---------- |
+  | 25% | +12, 0.36 sd (was +1) | -0.03, 0.05 sd |
+  | 50% | -5, 0.15 sd (was -31) | -0.15, 0.23 sd |
+  | 100% | -35, 1.21 sd (was -48) | +1.33, 2.04 sd |
+
+  Arena, equal TIME at a 400ms clock, 480 games:
+
+  | agent | elo | mean score |
+  | ----- | --- | ---------- |
+  | Rollout | 1518 | 3.23 |
+  | Mix50 | 1498 | 3.63 |
+  | Mix100 | 1484 | 5.05 |
+
+  **Scale helped and did not cross the line.** Mix50 went from -31 Elo to -5 and
+  now holds the nominally best mean score in the pool, but every difference is
+  inside noise. Blends TIE the rollout at equal simulations; at equal time the
+  rollout wins on both metrics, because a bigger network is slower per forward
+  pass and buys fewer extra iterations than the small one did.
+
+  **The value loss is the finding.** 0.6384, identical across four generations,
+  two architectures, two encoders, and now 1.7x capacity on 3.5x the data. That
+  is not a capacity or data shortage; it is the intrinsic limit of the target. A
+  mid-game position does not determine the final reward, because the reward
+  depends on draws nobody can see. The policy head kept improving - 1.4566 to
+  1.3625 - because move quality IS learnable from a position. The value is not.
+
+  Which is the ceiling probe's finding arriving from the other direction: this
+  game's uncertainty is dominated by cards that leak from nothing.
