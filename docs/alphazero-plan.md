@@ -274,3 +274,59 @@ Newest last. Record measurements, not impressions.
 
   Generation 0 running: 6,000 games, 400 simulations, 240 shards, expected
   ~400k samples in about 5.7 hours.
+
+- **2026-08-31 - generation 0 trained, and the network does not beat its
+  control. Three variants tried; the standing tally is below.**
+
+  All arenas run the identical search at the identical simulation count on
+  every row, so a gap between a network row and the Rollout row is the network
+  and nothing else.
+
+  | variant | vs Rollout, elo | vs Rollout, mean score |
+  | ------- | --------------- | ---------------------- |
+  | policy head only | +3 (0.05 sd) | +0.31 (0.34 sd) - ties |
+  | masked value, calibrated | -3 (0.06 sd) | +0.92 (1.11 sd) |
+  | masked value, raw | -85 | +4.15 (4.38 sd) |
+  | reveal value, calibrated | -65 (1.59 sd) | +2.21 (2.86 sd) |
+  | reveal value, raw | -142 (2.74 sd) | +5.13 (6.05 sd) |
+
+  **The policy head is neutral everywhere. The value head hurts everywhere.**
+
+  Two diagnoses were made and both were wrong in the arena.
+
+  *Calibration.* The value head regresses to the mean, spread 0.079 against the
+  outcomes' 0.174, so UCT's fixed exploration term ran at 1.47x the value
+  signal where the static estimate ran at 0.63x. Stretching by 2.2x was worth
+  about 59 Elo - real - but only reached parity, because scaling lifts the
+  global and sibling spreads together and cannot change their ratio.
+
+  *Revealing the sampled world.* ISMCTS evaluates inside a world it drew, so a
+  masked encoder returns the same value in every world and cannot contribute
+  the world-specific signal a rollout does. Training an encoder that sees the
+  sampled cards raised sibling spread from 0.0341 to 0.0511 and its ratio to
+  0.57, past the rollout's 0.51 - and then played 2.86 standard errors WORSE.
+
+  The likeliest reason for that last one, untested: the reveal network trains on
+  real hidden layouts, which are not uniform, because what a player holds
+  correlates with the choices that got them there. It is then used on
+  determinized layouts drawn uniformly from the unseen multiset. So it
+  extrapolates a sharp mapping onto inputs unlike its training data and answers
+  confidently about worlds that never occur, where a rollout handed the same
+  fake world degrades gracefully because it simulates rather than extrapolates.
+
+  **What this says about where the remaining value is.** The perfect-information
+  probe found 310 Elo at 7.6 sd between an agent that sees the hidden cards and
+  the identical search that does not. That budget is entirely in
+  hidden-information handling, and three attempts have now confirmed it is not
+  reachable by improving the leaf VALUE. The untried lever is inference:
+  `determinize` samples the unseen cards uniformly and ignores everything
+  opponents' choices reveal. Someone taking a 9 off a discard pile probably
+  wants 9s. `docs/ideas.md` has listed this as untried since before this project
+  began, and it addresses the constraint the probe actually identified.
+
+  Also measured, and it corrects a plan assumption: a forward pass costs 133us
+  for the flat network and 186us for the shared one, not the 50us budgeted. The
+  earlier 26us figure came from an agent benchmark that does not reproduce -
+  63,898 multiply-accumulates in 26us implies 2.5 GMAC/s, which scalar
+  JavaScript over Float32Array does not reach. The saving against a 300us
+  rollout is therefore about 1.6x, not 10x.
