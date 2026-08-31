@@ -17,7 +17,8 @@
     "horizon": "vite-node src/ai/horizon-arena.ts -- --horizon",
     "bench:nn": "vite-node src/ai/nn/bench.ts -- --bench-nn",
     "selfplay": "node scripts/selfplay-parallel.mjs",
-    "train": "vite-node src/ai/nn/train-run.ts"
+    "train": "vite-node src/ai/nn/train-run.ts",
+    "net:arena": "vite-node src/ai/nn/net-arena.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
