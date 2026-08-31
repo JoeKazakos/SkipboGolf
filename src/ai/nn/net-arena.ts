@@ -16,7 +16,7 @@ import type { Agent } from '../agent';
 import { createAgentForProfile, profileById } from '../roster';
 import { playIndexedGame, summarise, formatTable } from '../arena';
 import { checkpointFs } from './checkpoint';
-import { createNetEvaluator } from './evaluator';
+import { createNetEvaluator, type EvaluatorCalibration } from './evaluator';
 import { deserializeWeights, type WeightsMeta } from './serialize';
 
 declare const process:
@@ -34,7 +34,7 @@ declare const process:
 export async function loadEvaluator(
   path: string,
   name = 'net',
-  calibration: { valueScale?: number; valueCenter?: number } = {},
+  calibration: EvaluatorCalibration = {},
 ) {
   const fs = await checkpointFs();
   const metaPath = path.replace(/\.bin$/, '.meta.json');
@@ -53,7 +53,11 @@ async function main(): Promise<void> {
   const seed = Number(env.NA_SEED ?? 606060);
   const opponents = (env.NA_OPPONENTS ?? 'nel,vin,ada,rook').split(',');
 
-  const evaluator = await loadEvaluator(weightsPath, 'Net');
+  // A network trained with the reveal encoder MUST be evaluated with it too:
+  // the same weights fed masked features is a different function, and nothing
+  // downstream would report the mismatch.
+  const reveal = env.NA_REVEAL === '1';
+  const evaluator = await loadEvaluator(weightsPath, 'Net', { reveal });
 
   // The calibrated variant, when a scale is given. Same weights, same ordering
   // - only the value head's spread is stretched, so any difference between
@@ -61,7 +65,7 @@ async function main(): Promise<void> {
   const scale = Number(env.NA_SCALE ?? 0);
   const center = Number(env.NA_CENTER ?? 0.6436);
   const calibrated = scale > 0
-    ? await loadEvaluator(weightsPath, 'NetCal', { valueScale: scale, valueCenter: center })
+    ? await loadEvaluator(weightsPath, 'NetCal', { valueScale: scale, valueCenter: center, reveal })
     : null;
 
   // The network agent gets the SAME simulation count as the ISMCTS control, so

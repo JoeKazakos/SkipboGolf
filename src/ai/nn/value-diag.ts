@@ -59,6 +59,10 @@ async function main(): Promise<void> {
   const weightsPath = env.VD_WEIGHTS ?? 'training/gen000/weights.bin';
   const generation = env.VD_GENERATION ?? '000';
   const limit = Number(env.VD_SAMPLES ?? 12000);
+  // Must match how the weights were TRAINED. Feeding a reveal-trained network
+  // masked features is a different function, and the numbers below would look
+  // like a bad network rather than a mismatched harness.
+  const reveal = env.VD_REVEAL === '1';
 
   const fs = await checkpointFs();
   const meta = JSON.parse(
@@ -80,7 +84,7 @@ async function main(): Promise<void> {
       // Every tenth, matching the trainer's holdout rule.
       if (seen++ % 10 !== 0) continue;
       const state = positionOf(sample);
-      encodeFeatures(state, state.current, buffer);
+      encodeFeatures(state, state.current, buffer, reveal);
       fromNet.push(net.forward(buffer).value[0]);
 
       const scores = state.players.map((p) =>
