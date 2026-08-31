@@ -1,4 +1,5 @@
 import { makeRng, type Rng } from '../../engine/rng';
+import { FEATURE_SIZE } from './features';
 import { MAX_SEATS, POLICY_SIZE, type NetOutput } from './contracts';
 
 /**
@@ -54,7 +55,9 @@ export interface NetArch {
  * extra width would be. Re-run `npm run bench:nn` after any kernel change.
  */
 export const DEFAULT_ARCH: NetArch = {
-  inputSize: 400,
+  // Tied to the encoder rather than guessed. This read 400 while the two were
+  // built in parallel, which would have thrown on the first real forward pass.
+  inputSize: FEATURE_SIZE,
   hidden: [128, 128],
   valueSize: MAX_SEATS,
   policySize: POLICY_SIZE,
