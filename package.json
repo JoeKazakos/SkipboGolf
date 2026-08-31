@@ -21,7 +21,8 @@
     "net:arena": "vite-node src/ai/nn/net-arena.ts",
     "net:diag": "vite-node src/ai/nn/value-diag.ts",
     "ceiling": "vite-node src/ai/nn/ceiling.ts",
-    "train:shared": "vite-node src/ai/nn/train-shared.ts"
+    "train:shared": "vite-node src/ai/nn/train-shared.ts",
+    "netladder": "node scripts/netladder.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
