@@ -598,3 +598,40 @@ decided none of them.
 
   This was the last untested condition in which the network could have won, and
   it is the condition the product actually runs under. The verdict stands.
+
+- **2026-08-31 - the ceiling decomposed, and the 310 Elo I kept quoting was 91%
+  unreachable.**
+
+  The full oracle sees ALL hidden cards, including its OWN face-down ones. I
+  quoted its advantage all day as headroom for better inference. That was wrong:
+  your own face-down cards are dealt at random and leak from nothing - no
+  opponent behaviour, no visible structure - so no model can ever recover them.
+  Only what OPPONENTS hold is chaseable, because their choices leak it.
+
+  Three oracles against one control, 300 games:
+
+  | agent | elo | mean score | vs control |
+  | ----- | --- | ---------- | ---------- |
+  | OracleAll | 1718 | -3.71 | +283 elo (5.72 sd) |
+  | OracleSelf | 1620 | -0.61 | +185 elo (3.90 sd) |
+  | OracleOpp | 1460 | 7.17 | **+25 elo (0.49 sd)** |
+  | Normal | 1435 | 7.00 | - |
+
+  **Knowing what every opponent holds is worth 25 Elo at half a standard error,
+  and nothing at all on mean score.** Knowing your own face-down cards is worth
+  185 Elo at 3.9 sd. Nine per cent of the gap is reachable by any model, ever.
+
+  This reframes the entire milestone. The recommendation I gave repeatedly -
+  stop working on evaluation, go after hidden-information inference, there are
+  310 Elo there - was chasing a number that is 91% composed of information
+  nobody can obtain. The belief model closing a fifth of the entropy on
+  opponents' hands was competently chasing a 25-Elo prize, which is why it
+  produced nothing: a fifth of 25 Elo is invisible next to the bias that
+  weighting the deal introduced.
+
+  **The honest conclusion is that this game's ISMCTS is close to its practical
+  ceiling.** Random rates 961 and the best searching tier 1706; 13.5x more
+  search buys 29 Elo inside its error bars; perfect knowledge of every opponent
+  buys 25 Elo at half a standard error. There is very little left on the table
+  for any method, learned or otherwise, and that is a finding rather than a
+  failure - it is the thing that should have been measured on day one.
