@@ -88,7 +88,11 @@ function runShard(shard) {
       finished += 1;
       const elapsed = (Date.now() - started) / 1000;
       const done = results.length + 1;
-      const eta = done > 0 ? (elapsed / done) * (shards - done) : 0;
+      // Divide the remaining work by the worker count. Without that the eta
+      // assumes shards run one after another and overstates by the degree of
+      // parallelism - it read 28 hours for a run the pilot rate put at six.
+      const perShard = elapsed / done;
+      const eta = (perShard * (shards - done)) / workers;
       console.log(
         `[${finished}/${shards}] shard ${shard}: ${result.samples} samples` +
           `${result.skipped ? ' (already on disk)' : ` in ${result.seconds.toFixed(0)}s`}` +

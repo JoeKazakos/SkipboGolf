@@ -1,6 +1,8 @@
 import type { Action, GameState } from '../engine/types';
 import type { Agent } from './agent';
 import { createIsmctsAgent, ismctsSearch, type IsmctsOptions } from './ismcts';
+import type { Evaluator } from './nn/contracts';
+import { loadEvaluatorFromUrl } from './nn/load';
 
 /**
  * The ISMCTS search moved off the main thread, so a multi-second budget never
@@ -18,6 +20,14 @@ export interface ChooseRequest {
   state: GameState;
   player: number;
   options: IsmctsOptions;
+  /**
+   * Where to fetch a trained network, if this opponent uses one.
+   *
+   * A URL rather than the evaluator itself, because an `Evaluator` holds
+   * functions and closures and postMessage can only carry structured-cloneable
+   * data. The worker loads it once and caches it.
+   */
+  weightsUrl?: string;
 }
 
 export interface AbortRequest {
@@ -44,10 +54,15 @@ export type WorkerResponse =
   | { id: number; ok: false; error: string };
 
 /** Handles one request. Exported so the in-thread fallback runs identical code. */
-export function handleRequest(request: ChooseRequest, signal?: AbortSignal): WorkerResponse {
+export function handleRequest(
+  request: ChooseRequest,
+  signal?: AbortSignal,
+  evaluator?: Evaluator,
+): WorkerResponse {
   try {
     const { action, rootVisits, iterations } = ismctsSearch(request.state, request.player, {
       ...request.options,
+      ...(evaluator ? { evaluator } : {}),
       signal,
     });
     return { id: request.id, ok: true, action, rootVisits, iterations };
@@ -80,15 +95,30 @@ if (inWorkerScope()) {
     }
     const controller = new AbortController();
     inFlight.set(request.id, controller);
-    const response = handleRequest(request, controller.signal);
-    inFlight.delete(request.id);
-    scope.postMessage(response);
+    void (async () => {
+      let evaluator: Evaluator | undefined;
+      if (request.weightsUrl) {
+        try {
+          evaluator = await loadEvaluatorFromUrl(request.weightsUrl);
+        } catch {
+          // Play on with the heuristic rather than refuse to move. A missing
+          // or stale weights file makes this opponent weaker, which is a much
+          // better failure than a seat that never takes its turn.
+          evaluator = undefined;
+        }
+      }
+      const response = handleRequest(request, controller.signal, evaluator);
+      inFlight.delete(request.id);
+      scope.postMessage(response);
+    })();
   });
 }
 
 export interface WorkerAgentOptions extends IsmctsOptions {
   /** Set false to skip the worker entirely, e.g. when profiling. */
   useWorker?: boolean;
+  /** Weights for a network-backed opponent; see ChooseRequest.weightsUrl. */
+  weightsUrl?: string;
 }
 
 /**
@@ -101,11 +131,32 @@ export interface WorkerAgentOptions extends IsmctsOptions {
  * with a promise that never settles.
  */
 export function createWorkerAgent(options: WorkerAgentOptions = {}): Agent {
-  const { useWorker = true, ...searchOptions } = options;
+  const { useWorker = true, weightsUrl, ...searchOptions } = options;
   let worker: Worker | null = null;
   let workerFailed = !useWorker;
   const inThread = createIsmctsAgent(searchOptions);
   let nextId = 1;
+
+  /**
+   * The in-thread fallback for a network opponent.
+   *
+   * Built lazily and only if the worker is unavailable, so the common path
+   * never pays for it. If the weights will not load, this degrades to the
+   * plain heuristic search rather than refusing to move: a weaker opponent is
+   * a far better failure than a seat that never takes its turn.
+   */
+  let inThreadNet: Agent | null = null;
+  async function inThreadAgent(): Promise<Agent> {
+    if (!weightsUrl) return inThread;
+    if (inThreadNet) return inThreadNet;
+    try {
+      const evaluator = await loadEvaluatorFromUrl(weightsUrl, options.name ?? 'net');
+      inThreadNet = createIsmctsAgent({ ...searchOptions, evaluator });
+    } catch {
+      inThreadNet = inThread;
+    }
+    return inThreadNet;
+  }
 
   function ensureWorker(): Worker | null {
     if (workerFailed) return null;
@@ -129,7 +180,7 @@ export function createWorkerAgent(options: WorkerAgentOptions = {}): Agent {
     name: options.name ?? 'ismcts-worker',
     async chooseAction(state, player, opts) {
       const active = ensureWorker();
-      if (active == null) return inThread.chooseAction(state, player, opts);
+      if (active == null) return (await inThreadAgent()).chooseAction(state, player, opts);
 
       const id = nextId++;
       const request: ChooseRequest = {
@@ -138,6 +189,7 @@ export function createWorkerAgent(options: WorkerAgentOptions = {}): Agent {
         state,
         player,
         options: { ...searchOptions, budgetMs: opts?.budgetMs ?? searchOptions.budgetMs },
+        ...(weightsUrl ? { weightsUrl } : {}),
       };
 
       try {
@@ -171,7 +223,10 @@ export function createWorkerAgent(options: WorkerAgentOptions = {}): Agent {
         workerFailed = true;
         worker?.terminate();
         worker = null;
-        return inThread.chooseAction(state, player, opts);
+        // The network opponent keeps its network when it falls back in-thread;
+        // dropping to the plain search here would silently change who the
+        // player is facing mid-game.
+        return (await inThreadAgent()).chooseAction(state, player, opts);
       }
     },
   };

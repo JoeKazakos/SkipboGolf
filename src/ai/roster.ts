@@ -32,7 +32,12 @@ export function createBlunderingAgent(base: Agent, epsilon: number, seed = 4242)
 }
 
 /** How an opponent decides, independent of what it is called on screen. */
-export type OpponentKind = 'random' | 'blundering-heuristic' | 'heuristic' | 'ismcts';
+export type OpponentKind =
+  | 'random'
+  | 'blundering-heuristic'
+  | 'heuristic'
+  | 'ismcts'
+  | 'net';
 
 export interface OpponentProfile {
   /** Stable id, used in saved settings and as a React key. */
@@ -68,6 +73,23 @@ export interface OpponentProfile {
   readonly budgetMs?: number;
   /** Blunder probability, for the blundering tier only. */
   readonly epsilon?: number;
+  /**
+   * Trained weights for the 'net' tier, served as a static file.
+   *
+   * A URL rather than a bundled module: at 64k parameters the weights are
+   * about 250KB, and inlining them would make everyone download a network
+   * whether or not they ever seat one.
+   */
+  readonly weightsUrl?: string;
+  /**
+   * Simulations per decision.
+   *
+   * Preferred over `budgetMs` where it is set, because it makes a tier's
+   * strength a property of the tier rather than of the machine it runs on -
+   * "40ms" is a different opponent on a phone than on a workstation, and its
+   * measured Elo is then a fact about the box that measured it.
+   */
+  readonly iterations?: number;
   /**
    * Scale the value of turning cards face up by how close an opponent is to
    * going out. Off for the measured tiers, so their ratings still stand.
@@ -234,10 +256,16 @@ function buildAgent(profile: OpponentProfile, seed: number): Agent {
         seed,
       );
     case 'ismcts':
+    case 'net':
+      // The 'net' tier needs an evaluator, which only the browser worker and
+      // the node arena know how to load. Built here without one it is an
+      // ordinary ISMCTS agent; see createOpponentAgent in ui/agents.ts and
+      // net-arena.ts for the two paths that supply the weights.
       return createIsmctsAgent({
         name: profile.name,
         seed,
         budgetMs: profile.budgetMs ?? 150,
+        ...(profile.iterations ? { maxIterations: profile.iterations } : {}),
         raceAware: profile.raceAware ?? false,
       });
   }

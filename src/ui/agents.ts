@@ -16,11 +16,15 @@ const HINT_BUDGET_MS = 1500;
  * fast enough to run inline, and spawning a worker each would be wasteful.
  */
 export function createOpponentAgent(profile: OpponentProfile, seed = 20250828): Agent {
-  if (profile.kind !== 'ismcts') return createAgentForProfile(profile, seed);
+  if (profile.kind !== 'ismcts' && profile.kind !== 'net') {
+    return createAgentForProfile(profile, seed);
+  }
   const worker = createWorkerAgent({
     name: profile.name,
     seed,
     budgetMs: profile.budgetMs ?? 150,
+    ...(profile.iterations ? { maxIterations: profile.iterations } : {}),
+    ...(profile.weightsUrl ? { weightsUrl: profile.weightsUrl } : {}),
     raceAware: profile.raceAware ?? false,
   });
   return worker.name === profile.name ? worker : { ...worker, name: profile.name };
