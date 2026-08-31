@@ -83,6 +83,22 @@ export interface IsmctsOptions {
    */
   evaluatorRole?: 'both' | 'value' | 'policy';
   /**
+   * How much of the leaf value comes from the NETWORK rather than the rollout.
+   *
+   * 1 replaces the rollout entirely, which is what AlphaZero does and what
+   * every experiment here tried; 0 ignores the network's value. Between them
+   * the leaf is a blend of both.
+   *
+   * The measurements say the two are complementary rather than competing. The
+   * network correlates better with the outcome overall - 0.49 against a
+   * rollout's 0.41 - while the rollout is far better at separating the moves
+   * available right now, a sibling-spread ratio of 0.51 against 0.37. Each is
+   * strong where the other is weak, and mixing is the standard answer to that,
+   * used by AlphaGo before AlphaZero dropped rollouts on the strength of a much
+   * better value network than this one.
+   */
+  evaluatorMix?: number;
+  /**
    * Search the TRUE position instead of sampling a world from what the player
    * can see. A cheat, for measurement only.
    *
@@ -351,7 +367,8 @@ export function ismctsSearch(
   const leafParams = options.leafParams ?? params;
   const evaluator = options.evaluator;
   const role = options.evaluatorRole ?? 'both';
-  const useNetValue = evaluator != null && (role === 'both' || role === 'value');
+  const mix = options.evaluatorMix ?? 1;
+  const useNetValue = evaluator != null && (role === 'both' || role === 'value') && mix > 0;
   const useNetPolicy = evaluator != null && (role === 'both' || role === 'policy');
   const rng = makeRng(options.seed ?? (root.rngState ^ (root.turnCount * 2654435761)) >>> 0);
 
@@ -456,7 +473,16 @@ export function ismctsSearch(
     if (isTerminal(s)) {
       reward = rewardVector(returns(s));
     } else if (useNetValue && evaluator) {
-      reward = evaluatorReward(evaluator, s, numPlayers);
+      const netValue = evaluatorReward(evaluator, s, numPlayers);
+      if (mix >= 1) {
+        reward = netValue;
+      } else {
+        // Both estimators, blended. The rollout still costs what it costs, so
+        // this buys strength rather than speed - which is the trade worth
+        // making, since the network on its own has never bought either.
+        const rolled = rewardVector(rollout(s, rng, turnLimit, raceAware, params, leafParams));
+        reward = netValue.map((v, i) => mix * v + (1 - mix) * rolled[i]);
+      }
     } else {
       reward = rewardVector(rollout(s, rng, turnLimit, raceAware, params, leafParams));
     }
