@@ -75,14 +75,30 @@ async function main(): Promise<void> {
   // search drew - and the stored positions carry the real ones, so no new
   // self-play is needed to train it. See the note on encodeFeatures.
   REVEAL = env.TR_REVEAL === '1';
-  const suffix = REVEAL ? '-reveal' : '';
+  // TR_TAG names a run so it gets its own checkpoints and weights. Without it a
+  // run that changes the ARCHITECTURE silently resumes the previous one's
+  // checkpoint and trains the old network instead - which happened, and looked
+  // like a completed run rather than a mistake.
+  const tag = env.TR_TAG ? `-${env.TR_TAG}` : '';
+  const suffix = `${REVEAL ? '-reveal' : ''}${tag}`;
 
+  // TR_POOL pools several generations into one training set. Self-play data is
+  // expensive and does not go stale: a position and the reward its round ended
+  // on are as true from generation 0 as from generation 3, whoever played it.
+  // Four 3-player generations together are roughly four times the data any one
+  // of them offered, at no extra compute.
+  const pool = (env.TR_POOL ?? '').split(',').filter(Boolean).map(Number);
   const config: SelfPlayConfig = { ...DEFAULT_SELFPLAY, generation };
   const dir = join(root, `gen${String(generation).padStart(3, '0')}`);
   const ckptDir = join(dir, `checkpoints${suffix}`);
 
   console.log(`training on generation ${generation}`);
-  const all = await readGeneration(config, shards, root);
+  let all = await readGeneration(config, shards, root);
+  for (const g of pool) {
+    if (g === generation) continue;
+    all = all.concat(await readGeneration({ ...config, generation: g }, shards, root));
+  }
+  if (pool.length > 0) console.log(`  pooled generations ${[generation, ...pool.filter((g) => g !== generation)].join(', ')}`);
   if (all.length === 0) {
     console.error(`no samples found in ${dir}/shards - run npm run selfplay first`);
     if (typeof process !== 'undefined' && process?.exit) process.exit(1);
@@ -109,7 +125,9 @@ async function main(): Promise<void> {
     });
     console.log(`  resuming from ${resumeFrom} at epoch ${trainer.epoch}, step ${trainer.step}`);
   } else {
-    trainer = new Trainer(Net.create(DEFAULT_ARCH, 20260830), { learningRate, batchSize, seed: 7 });
+    const hidden = (env.TR_HIDDEN ?? '').split(',').filter(Boolean).map(Number);
+    const arch = hidden.length > 0 ? { ...DEFAULT_ARCH, hidden } : DEFAULT_ARCH;
+    trainer = new Trainer(Net.create(arch, 20260830), { learningRate, batchSize, seed: 7 });
     console.log(`  fresh network: ${trainer.net.parameterCount()} parameters`);
   }
 

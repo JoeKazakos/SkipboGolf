@@ -44,16 +44,16 @@ async function buildLadder(
   dir: string,
   mixes: number[],
   budgetMs: number,
+  tag: string,
 ): Promise<Agent[]> {
   const fs = await checkpointFs();
   const meta = JSON.parse(
-    new TextDecoder().decode(fs.readFileSync(`${dir}/weights.meta.json`)),
+    new TextDecoder().decode(fs.readFileSync(`${dir}/weights${tag}.meta.json`)),
   ) as WeightsMeta;
-  const bytes = fs.readFileSync(`${dir}/weights.bin`);
-  const cal = JSON.parse(new TextDecoder().decode(fs.readFileSync(`${dir}/calibration.json`))) as {
-    valueScale: number;
-    valueCenter: number;
-  };
+  const bytes = fs.readFileSync(`${dir}/weights${tag}.bin`);
+  const cal = JSON.parse(
+    new TextDecoder().decode(fs.readFileSync(`${dir}/calibration${tag}.json`)),
+  ) as { valueScale: number; valueCenter: number };
 
   // budgetMs > 0 selects the equal-time comparison; otherwise equal simulations.
   const common =
@@ -86,7 +86,8 @@ async function main(): Promise<void> {
   const mixes = (env.MX_MIXES ?? '0,0.25,0.5,0.75,1').split(',').map(Number);
 
   const budgetMs = Number(env.MX_BUDGET_MS ?? 0);
-  const ladder = await buildLadder(iterations, dir, mixes, budgetMs);
+  const tag = env.MX_TAG ? `-${env.MX_TAG}` : '';
+  const ladder = await buildLadder(iterations, dir, mixes, budgetMs, tag);
   const out: unknown[] = [];
   for (let g = from; g < to; g++) {
     out.push(await playIndexedGame(ladder, g, { seed, seatCount: seats }));
