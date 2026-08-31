@@ -14,7 +14,8 @@
     "fit": "vite-node src/ai/fit-run.ts -- --fit",
     "fit:arena": "vite-node src/ai/fit-arena.ts -- --fit-arena",
     "fit:sweep": "vite-node src/ai/fit-sweep.ts -- --sweep",
-    "horizon": "vite-node src/ai/horizon-arena.ts -- --horizon"
+    "horizon": "vite-node src/ai/horizon-arena.ts -- --horizon",
+    "bench:nn": "vite-node src/ai/nn/bench.ts -- --bench-nn"
   },
   "dependencies": {
     "react": "^18.3.1",
