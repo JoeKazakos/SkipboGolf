@@ -10,10 +10,21 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "arena": "vite-node src/ai/arena.ts -- --arena",
+    "bench": "vite-node src/ai/bench.ts -- --bench",
     "fit": "vite-node src/ai/fit-run.ts -- --fit",
     "fit:arena": "vite-node src/ai/fit-arena.ts -- --fit-arena",
     "fit:sweep": "vite-node src/ai/fit-sweep.ts -- --sweep",
-    "horizon": "vite-node src/ai/horizon-arena.ts -- --horizon"
+    "horizon": "vite-node src/ai/horizon-arena.ts -- --horizon",
+    "bench:nn": "vite-node src/ai/nn/bench.ts -- --bench-nn",
+    "selfplay": "node scripts/selfplay-parallel.mjs",
+    "train": "vite-node src/ai/nn/train-run.ts",
+    "net:arena": "vite-node src/ai/nn/net-arena.ts",
+    "net:diag": "vite-node src/ai/nn/value-diag.ts",
+    "ceiling": "vite-node src/ai/nn/ceiling.ts",
+    "train:shared": "vite-node src/ai/nn/train-shared.ts",
+    "netladder": "node scripts/netladder.mjs",
+    "gen3p": "node scripts/gen3p.mjs",
+    "infer:probe": "vite-node src/ai/nn/infer-probe.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

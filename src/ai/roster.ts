@@ -32,7 +32,12 @@ export function createBlunderingAgent(base: Agent, epsilon: number, seed = 4242)
 }
 
 /** How an opponent decides, independent of what it is called on screen. */
-export type OpponentKind = 'random' | 'blundering-heuristic' | 'heuristic' | 'ismcts';
+export type OpponentKind =
+  | 'random'
+  | 'blundering-heuristic'
+  | 'heuristic'
+  | 'ismcts'
+  | 'net';
 
 export interface OpponentProfile {
   /** Stable id, used in saved settings and as a React key. */
@@ -64,10 +69,35 @@ export interface OpponentProfile {
   readonly meanScore: number | null;
   /** Share of ladder games won. */
   readonly winRate: number | null;
-  /** Per-decision search budget, for the ISMCTS tiers only. */
+  /**
+   * Wall-clock CAP per decision, not the tier's strength setting.
+   *
+   * `iterations` sets how well the tier plays; this only bounds how long a
+   * player waits for it on a slow device. Set with headroom over what the
+   * simulation count costs here, so it binds on a phone rather than routinely
+   * on a desktop - a cap that binds in normal play is just a time budget again,
+   * with all the machine-dependence that was the reason to leave one.
+   */
   readonly budgetMs?: number;
   /** Blunder probability, for the blundering tier only. */
   readonly epsilon?: number;
+  /**
+   * Trained weights for the 'net' tier, served as a static file.
+   *
+   * A URL rather than a bundled module: at 64k parameters the weights are
+   * about 250KB, and inlining them would make everyone download a network
+   * whether or not they ever seat one.
+   */
+  readonly weightsUrl?: string;
+  /**
+   * Simulations per decision.
+   *
+   * Preferred over `budgetMs` where it is set, because it makes a tier's
+   * strength a property of the tier rather than of the machine it runs on -
+   * "40ms" is a different opponent on a phone than on a workstation, and its
+   * measured Elo is then a fact about the box that measured it.
+   */
+  readonly iterations?: number;
   /**
    * Scale the value of turning cards face up by how close an opponent is to
    * going out. Off for the measured tiers, so their ratings still stand.
@@ -78,9 +108,24 @@ export interface OpponentProfile {
 /**
  * The opponents you can seat, weakest first by measured rating.
  *
+ * Re-measured 2026-08-31 after the searching tiers moved from millisecond
+ * budgets to simulation counts. The conversion held strength where it was set -
+ * each count is what that tier's old budget bought at a six-player table, and
+ * six players is what the ladder runs - so every tier moved less than its own
+ * error bar. What it buys is consistency at OTHER table sizes, where a clock
+ * used to hand out four times as much thinking at two players as at seven.
+ *
  * Measured 2026-08-30 by `node scripts/arena-parallel.mjs --games 480 --roster`
- * (480 games, ~411 per agent, 18 minutes across 18 processes). Re-run it after
- * changing any tier.
+ * (480 games, ~411 per agent, 16 minutes across 18 processes), re-run after
+ * priors were cached at node expansion. Re-run it after changing any tier.
+ *
+ * That change made the four ISMCTS tiers cheaper per iteration, and the ladder
+ * moved the way that predicts: Vin +34, Rook +29, Ada +23, Sage -8, against
+ * error bars near 33. Nel, Dot and Pip run untouched code, so their apparent
+ * -6, -21 and -51 are the other side of the same relative shift, not a
+ * regression in them. Mean scores agree - Sage 1.85 to 1.29, Ada 4.47 to 4.13,
+ * Vin 7.09 to 6.59. Read this as no regression and a possible small gain for
+ * the searching tiers; at roughly one standard error it is not more than that.
  *
  * The tiers use genuinely different methods rather than one engine throttled
  * down, so a weak opponent plays *simply* instead of erratically: it misses
@@ -96,9 +141,24 @@ export interface OpponentProfile {
  *    because they genuinely cannot be told apart; do not reorder them on one
  *    run's evidence.
  *
- * 2. Search shows sharply diminishing returns at the top. Ada at 150ms to Sage
- *    at 2000ms, a thirteenfold increase, buys about 100 Elo, and Ada, Rook and
+ * 2. Search shows sharply diminishing returns at the top. Ada to Sage, a
+ *    thirteenfold increase in thinking, buys about 100 Elo, and Ada, Rook and
  *    Sage stay within a standard error or two of each other.
+ *
+ * 3. The searching tiers are set by SIMULATION COUNT, with `budgetMs` kept only
+ *    as a responsiveness cap. A millisecond budget made a tier's strength a
+ *    property of the machine rather than of the tier - and worse, of the table
+ *    size. Measured 2026-08-31, one budget bought wildly different amounts of
+ *    thinking depending on the position:
+ *
+ *      150ms   670 simulations at a 2-player table, 168 at a 7-player one
+ *      2000ms  10,148 at 2 players, 2,169 at 7
+ *
+ *    So every tier used to play WEAKEST at the biggest tables, which is exactly
+ *    backwards: more opponents is where thinking matters most. The counts below
+ *    are what each old budget bought at a 6-player table, the common case, so a
+ *    tier now plays at one strength everywhere and its rating is a fact about
+ *    the tier rather than about the box that measured it.
  */
 export const ROSTER: readonly OpponentProfile[] = [
   {
@@ -108,10 +168,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     kind: 'random',
     strength: 1,
     tier: 'Beginner',
-    meanScore: 41.48,
-    winRate: 0.006,
-    elo: 971,
-    eloError: 36,
+    meanScore: 42.63,
+    winRate: 0.0,
+    elo: 961,
+    eloError: 26,
   },
   {
     id: 'dot',
@@ -121,23 +181,24 @@ export const ROSTER: readonly OpponentProfile[] = [
     epsilon: 0.4,
     strength: 2,
     tier: 'Casual',
-    meanScore: 20.08,
-    winRate: 0.014,
-    elo: 1334,
-    eloError: 33,
+    meanScore: 21.18,
+    winRate: 0.022,
+    elo: 1274,
+    eloError: 30,
   },
   {
     id: 'vin',
     name: 'Vin',
     blurb: 'Looks a little way ahead, though not far enough to show for it.',
     kind: 'ismcts',
-    budgetMs: 40,
+    iterations: 50,
+    budgetMs: 100,
     strength: 3,
     tier: 'Steady',
-    meanScore: 7.09,
-    winRate: 0.15,
-    elo: 1571,
-    eloError: 34,
+    meanScore: 4.62,
+    winRate: 0.17,
+    elo: 1625,
+    eloError: 31,
   },
   {
     id: 'nel',
@@ -146,35 +207,37 @@ export const ROSTER: readonly OpponentProfile[] = [
     kind: 'heuristic',
     strength: 3,
     tier: 'Steady',
-    meanScore: 5.71,
-    winRate: 0.221,
-    elo: 1585,
-    eloError: 35,
+    meanScore: 7.63,
+    winRate: 0.146,
+    elo: 1570,
+    eloError: 30,
   },
   {
     id: 'ada',
     name: 'Ada',
     blurb: 'Searches properly. A serious opponent.',
     kind: 'ismcts',
-    budgetMs: 150,
+    iterations: 200,
+    budgetMs: 400,
     strength: 4,
     tier: 'Strong',
-    meanScore: 4.47,
-    winRate: 0.199,
-    elo: 1627,
-    eloError: 28,
+    meanScore: 2.23,
+    winRate: 0.274,
+    elo: 1677,
+    eloError: 27,
   },
   {
     id: 'rook',
     name: 'Rook',
     blurb: 'Takes her time and rarely wastes a turn.',
     kind: 'ismcts',
-    budgetMs: 600,
+    iterations: 800,
+    budgetMs: 1200,
     strength: 4,
     tier: 'Strong',
-    meanScore: 2.36,
-    winRate: 0.265,
-    elo: 1679,
+    meanScore: 1.74,
+    winRate: 0.277,
+    elo: 1686,
     eloError: 30,
   },
   {
@@ -182,13 +245,14 @@ export const ROSTER: readonly OpponentProfile[] = [
     name: 'Sage',
     blurb: 'Thinks hard about every card. Expect to lose.',
     kind: 'ismcts',
-    budgetMs: 2000,
+    iterations: 2700,
+    budgetMs: 3000,
     strength: 5,
     tier: 'Expert',
-    meanScore: 1.85,
-    winRate: 0.31,
-    elo: 1733,
-    eloError: 26,
+    meanScore: 1.59,
+    winRate: 0.276,
+    elo: 1706,
+    eloError: 30,
   },
 ];
 
@@ -226,10 +290,16 @@ function buildAgent(profile: OpponentProfile, seed: number): Agent {
         seed,
       );
     case 'ismcts':
+    case 'net':
+      // The 'net' tier needs an evaluator, which only the browser worker and
+      // the node arena know how to load. Built here without one it is an
+      // ordinary ISMCTS agent; see createOpponentAgent in ui/agents.ts and
+      // net-arena.ts for the two paths that supply the weights.
       return createIsmctsAgent({
         name: profile.name,
         seed,
         budgetMs: profile.budgetMs ?? 150,
+        ...(profile.iterations ? { maxIterations: profile.iterations } : {}),
         raceAware: profile.raceAware ?? false,
       });
   }

@@ -10,6 +10,8 @@ import {
 } from '../engine/state';
 import type { Action, GameState } from '../engine/types';
 import type { Agent } from './agent';
+import type { Evaluator } from './nn/contracts';
+import { evaluatorPriors, evaluatorReward } from './nn/evaluator';
 import {
   DEFAULT_EVAL_PARAMS,
   deckRankCounts,
@@ -59,6 +61,65 @@ export interface IsmctsOptions {
    * going out. The plain evaluation ignores the race entirely.
    */
   raceAware?: boolean;
+  /**
+   * A trained network standing in for BOTH weak parts of the search: its value
+   * head replaces the truncated rollout at a leaf, and its policy head
+   * replaces the heuristic prior during descent.
+   *
+   * Absent, the search behaves exactly as it did before this existed. That
+   * matters - the measured roster tiers must not move because of an option
+   * nobody passed.
+   */
+  evaluator?: Evaluator;
+  /**
+   * Which half of the network to use.
+   *
+   * The two heads replace different things and can help or hurt independently:
+   * the value head displaces a truncated rollout at a leaf, the policy head
+   * displaces the one-ply heuristic prior during descent. Swapping both at once
+   * and measuring the pair cannot tell a gain in one from a loss in the other,
+   * which is exactly the confound that made an earlier experiment in this
+   * project uninterpretable.
+   */
+  evaluatorRole?: 'both' | 'value' | 'policy';
+  /**
+   * How much of the leaf value comes from the NETWORK rather than the rollout.
+   *
+   * 1 replaces the rollout entirely, which is what AlphaZero does and what
+   * every experiment here tried; 0 ignores the network's value. Between them
+   * the leaf is a blend of both.
+   *
+   * The measurements say the two are complementary rather than competing. The
+   * network correlates better with the outcome overall - 0.49 against a
+   * rollout's 0.41 - while the rollout is far better at separating the moves
+   * available right now, a sibling-spread ratio of 0.51 against 0.37. Each is
+   * strong where the other is weak, and mixing is the standard answer to that,
+   * used by AlphaGo before AlphaZero dropped rollouts on the strength of a much
+   * better value network than this one.
+   */
+  evaluatorMix?: number;
+  /**
+   * Supplies per-seat beliefs about what opponents are holding, used to weight
+   * the deal instead of sampling the unseen cards uniformly.
+   *
+   * Called ONCE per search, not once per iteration. `determinize` only ever
+   * runs on the root, and the root's information state does not change during
+   * a search, so the beliefs are fixed for its whole duration. That is what
+   * makes a model affordable here where the value head was not: seven forward
+   * passes spread over hundreds of iterations rather than one per leaf.
+   */
+  beliefProvider?: (s: GameState, viewer: number) => Beliefs;
+  /**
+   * Search the TRUE position instead of sampling a world from what the player
+   * can see. A cheat, for measurement only.
+   *
+   * It answers the one question that bounds every other effort here: how much
+   * is left to win. An agent that sees the hidden cards is an upper bound on
+   * what any amount of better inference, evaluation or search could buy, so if
+   * it barely beats Sage then this game's ceiling is the constraint and no
+   * network will move it. Never expose this to a seated opponent.
+   */
+  perfectInfo?: boolean;
   /** Evaluation parameters used to RANK moves; defaults to the hand-set ones. */
   evalParams?: EvalParams;
   /**
@@ -105,7 +166,45 @@ export function actionKey(a: Action): string {
  * Because the engine reveals cards as the round goes on, that multiset shrinks
  * and the sampled worlds sharpen. The AI is, in effect, counting cards.
  */
-export function determinize(s: GameState, viewer: number, rng: Rng): GameState {
+/**
+ * Per-seat, per-rank weights for the deal: `beliefs[seat][rank]` is how likely
+ * that seat is to be holding an unseen card of that rank, relative to the rest.
+ *
+ * `undefined` keeps the uniform deal, which is what every measurement in this
+ * project so far was taken against.
+ */
+export type Beliefs = readonly (readonly number[] | undefined)[] | undefined;
+
+/**
+ * Draws one index from `pool` with probability proportional to `weight`, then
+ * removes it. Falls back to uniform when the weights are degenerate, so a bad
+ * model degrades to today's behaviour rather than to a crash or a bias.
+ */
+function takeWeighted(pool: Rank[], weight: readonly number[] | undefined, rng: Rng): Rank {
+  if (weight == null || pool.length === 1) return pool.pop() as Rank;
+  let total = 0;
+  for (const rank of pool) total += Math.max(1e-6, weight[rank] ?? 1);
+  if (!(total > 0)) return pool.pop() as Rank;
+
+  let roll = rng.next() * total;
+  for (let i = 0; i < pool.length; i++) {
+    roll -= Math.max(1e-6, weight[pool[i]] ?? 1);
+    if (roll <= 0) {
+      const picked = pool[i];
+      pool[i] = pool[pool.length - 1];
+      pool.pop();
+      return picked;
+    }
+  }
+  return pool.pop() as Rank;
+}
+
+export function determinize(
+  s: GameState,
+  viewer: number,
+  rng: Rng,
+  beliefs?: Beliefs,
+): GameState {
   const t = clone(s);
 
   const counts = deckRankCounts();
@@ -133,8 +232,37 @@ export function determinize(s: GameState, viewer: number, rng: Rng): GameState {
     return card;
   };
 
-  for (const player of t.players) {
-    for (const slot of player.grid) if (!slot.faceUp) slot.card = take();
+  if (beliefs == null) {
+    for (const player of t.players) {
+      for (const slot of player.grid) if (!slot.faceUp) slot.card = take();
+    }
+  } else {
+    // Weighted deal for the FACE-DOWN GRID CARDS only. Those are what an
+    // opponent's choices actually tell you about, and they are what decides
+    // the score; the draw pile order and buried discards are not something any
+    // amount of watching reveals, so they stay uniform.
+    //
+    // The pool is consumed as it is dealt, so the multiset is preserved exactly
+    // and the resulting world is as valid as a uniform one - only its
+    // probability under the sampler changes.
+    const pool = dealt.slice(cursor);
+    const remainingIds = unseenIds.slice(cursor);
+    let idAt = 0;
+    for (let p = 0; p < t.players.length; p++) {
+      const weight = beliefs[p];
+      for (const slot of t.players[p].grid) {
+        if (slot.faceUp) continue;
+        slot.card = { rank: takeWeighted(pool, weight, rng), id: remainingIds[idAt++] };
+      }
+    }
+    // Whatever the weighted deal did not consume goes back for the uniform
+    // stages below, which keep using `take` over the original array.
+    const consumed = idAt;
+    for (let i = 0; i < pool.length; i++) dealt[cursor + consumed + i] = pool[i];
+    for (let i = 0; i < remainingIds.length - consumed; i++) {
+      unseenIds[cursor + consumed + i] = remainingIds[consumed + i];
+    }
+    cursor += consumed;
   }
   for (const player of t.players) {
     // Only the top three of each pile are public (section 4).
@@ -194,6 +322,13 @@ interface Node {
    * action against the visits it could have had, not against every visit here.
    */
   availability: Map<string, number>;
+  /**
+   * The heuristic prior for each action, remembered from the world that first
+   * offered that action. Keyed by action key rather than held positionally,
+   * because legality varies between determinizations and the same index means
+   * different things in different worlds.
+   */
+  priors: Map<string, number>;
 }
 
 function makeNode(playerToAct: number, numPlayers: number): Node {
@@ -203,7 +338,55 @@ function makeNode(playerToAct: number, numPlayers: number): Node {
     totals: new Array<number>(numPlayers).fill(0),
     children: new Map(),
     availability: new Map(),
+    priors: new Map(),
   };
+}
+
+/**
+ * The prior for each of this world's actions, computing only what is not
+ * already known.
+ *
+ * `policyPriors` costs about 5us, and the descent used to pay it at every node
+ * on the path on every visit, so a deep iteration re-derived the same heuristic
+ * dozens of times. Measured on the benchmark position, that made a 4000ms
+ * search cost 228us per iteration against 152us at 100ms; caching flattens most
+ * of that away.
+ *
+ * The common case is that every action here has been seen before and no
+ * heuristic call happens at all. When a world offers an action no previous
+ * world did - a wave that only this deal makes legal - one call fills in the
+ * missing keys and leaves the rest alone.
+ *
+ * This does change behaviour slightly, and deliberately: a prior is now fixed
+ * from whichever world first offered the action rather than being implicitly
+ * re-averaged across worlds every visit, and a cached set need no longer
+ * contain the 1.0 that `policyPriors` normalises to. It is what AlphaZero-style
+ * searches do, and a 480-game ladder found no regression from it: the four
+ * ISMCTS tiers moved +34, +29, +23 and -8 against error bars near 33, with
+ * mean scores agreeing, while the three tiers running untouched code moved the
+ * other way by the amount that relative shift implies.
+ */
+export function cachedPriors(
+  cache: Map<string, number>,
+  s: GameState,
+  actions: readonly Action[],
+  keys: readonly string[],
+  compute: (s: GameState, actions: readonly Action[]) => number[] = policyPriors,
+): number[] {
+  let missing = false;
+  for (const key of keys) {
+    if (!cache.has(key)) {
+      missing = true;
+      break;
+    }
+  }
+  if (missing) {
+    const fresh = compute(s, actions);
+    for (let i = 0; i < keys.length; i++) {
+      if (!cache.has(keys[i])) cache.set(keys[i], fresh[i]);
+    }
+  }
+  return keys.map((key) => cache.get(key) as number);
 }
 
 /** Scores each player's play area as it stands, for a rollout cut short by its turn limit. */
@@ -260,6 +443,13 @@ export function ismctsSearch(
   const raceAware = options.raceAware ?? false;
   const params = options.evalParams ?? DEFAULT_EVAL_PARAMS;
   const leafParams = options.leafParams ?? params;
+  const evaluator = options.evaluator;
+  // Once, before the loop: see the note on beliefProvider.
+  const beliefs = options.beliefProvider ? options.beliefProvider(root, player) : undefined;
+  const role = options.evaluatorRole ?? 'both';
+  const mix = options.evaluatorMix ?? 1;
+  const useNetValue = evaluator != null && (role === 'both' || role === 'value') && mix > 0;
+  const useNetPolicy = evaluator != null && (role === 'both' || role === 'policy');
   const rng = makeRng(options.seed ?? (root.rngState ^ (root.turnCount * 2654435761)) >>> 0);
 
   const rootActions = legalActions(root);
@@ -270,6 +460,15 @@ export function ismctsSearch(
 
   const numPlayers = root.players.length;
   const tree = makeNode(root.current, numPlayers);
+  // With a network, its policy head replaces the heuristic everywhere the
+  // heuristic was consulted for an ordering. The root keeps the expensive
+  // full-turn search either way: there the held card is real, it is paid for
+  // exactly once, and it is the one place the extra accuracy is affordable.
+  const priorFn =
+    useNetPolicy && evaluator
+      ? (st: GameState, acts: readonly Action[]): number[] =>
+          evaluatorPriors(evaluator, st, acts, st.players.length)
+      : policyPriors;
   const rootPriors = turnSearchPriors(root, rootActions, raceAware, params);
   const deadline = Date.now() + budgetMs;
   let iterations = 0;
@@ -280,7 +479,9 @@ export function ismctsSearch(
     if (Date.now() >= deadline) break;
     iterations += 1;
 
-    let s = determinize(root, player, rng);
+    // Perfect information skips the resampling entirely: the "sampled world"
+    // is the real one. Everything downstream is unchanged.
+    let s = options.perfectInfo ? clone(root) : determinize(root, player, rng, beliefs);
     let node = tree;
     const path: Node[] = [node];
 
@@ -301,11 +502,12 @@ export function ismctsSearch(
       //
       // At the root the held card is real, so the priors are fixed for the whole
       // search and the expensive full-turn search is worth paying for exactly
-      // once. Deeper nodes get the cheap one-ply estimate.
+      // once. Deeper nodes get the cheap one-ply estimate, cached on the node so
+      // the same heuristic is not re-derived on every visit.
       const priors =
         node === tree && actions.length === rootPriors.length
           ? rootPriors
-          : policyPriors(s, actions);
+          : cachedPriors(node.priors, s, actions, keys, priorFn);
 
       let chosen = 0;
       let bestScore = -Infinity;
@@ -342,7 +544,28 @@ export function ismctsSearch(
       if (expanded) break;
     }
 
-    const reward = rewardVector(isTerminal(s) ? returns(s) : rollout(s, rng, turnLimit, raceAware, params, leafParams));
+    // Three ways to value a leaf, in order of preference: the real result if
+    // the round ended, the network if we have one, and otherwise a truncated
+    // rollout. The network's output is ALREADY in reward space, which is the
+    // whole point of training it against `rewardVector`, so it must not be
+    // passed through `rewardVector` a second time.
+    let reward: number[];
+    if (isTerminal(s)) {
+      reward = rewardVector(returns(s));
+    } else if (useNetValue && evaluator) {
+      const netValue = evaluatorReward(evaluator, s, numPlayers);
+      if (mix >= 1) {
+        reward = netValue;
+      } else {
+        // Both estimators, blended. The rollout still costs what it costs, so
+        // this buys strength rather than speed - which is the trade worth
+        // making, since the network on its own has never bought either.
+        const rolled = rewardVector(rollout(s, rng, turnLimit, raceAware, params, leafParams));
+        reward = netValue.map((v, i) => mix * v + (1 - mix) * rolled[i]);
+      }
+    } else {
+      reward = rewardVector(rollout(s, rng, turnLimit, raceAware, params, leafParams));
+    }
     for (const visited of path) {
       visited.visits += 1;
       for (let i = 0; i < numPlayers; i++) visited.totals[i] += reward[i];

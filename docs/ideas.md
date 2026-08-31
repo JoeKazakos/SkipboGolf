@@ -10,9 +10,10 @@ Delete an entry when it ships or when it is decided against.
 
 | Priority | Item |
 | -------- | ---- |
-| High | Cache search priors at node expansion |
+| High | Inference from opponent behaviour in determinize |
+| High | Cache search priors at node expansion (done) |
 | Medium | A stronger opponent above Sage |
-| Medium | Learned linear evaluator for the rollout leaf |
+| Low | Learned linear evaluator (premise tested and failed) |
 | Medium | Self-play value and policy network |
 | Low | Re-rate the roster after any engine change |
 
@@ -128,6 +129,61 @@ across the whole range from "no idea" to "searches hard".
 
 
 
+## Inference from opponent behaviour, in `determinize`
+
+**Priority: HIGH.** This is where the measured headroom is, and it is the one
+lever the network work never touched.
+
+**The measurement.** An agent that SEES the hidden cards, running the identical
+search at the identical simulation count, rates 310 Elo above one that samples
+worlds - 7.6 standard errors, 12.3 on mean score, winning 53% of a six-player
+table where chance is 16.7%. That gap is 41% of the roster's entire span from
+random to best. It is an upper bound on what any amount of better inference can
+buy, and it is enormous.
+
+Set against it: four attempts to improve the leaf VALUE produced one parity
+result and three losses. The constraint is not evaluation.
+
+**What is wrong today.** `determinize` samples the unseen cards uniformly from
+the multiset nobody has seen. Uniform is the correct prior given no information,
+and there is a great deal of information:
+
+- Taking a 9 off a discard pile says the player wants 9s - usually because a 9
+  sits face down under a face-up 9, or completes a square.
+- Declining the centre card says its rank is worth less to them than a blind
+  draw, which is a statement about what they hold.
+- Which spot they place into, and which they leave alone, constrains the ranks
+  beneath their face-down cards.
+- Discarding a rank rather than placing it says that rank does not help them.
+
+Every one of those is thrown away, on every iteration, in every search.
+
+**The shape of the fix.** Keep a per-opponent, per-rank belief - how likely each
+unseen rank is to be under each of their face-down slots - and sample worlds
+from that instead of uniformly. The seam is exactly one function: `determinize`
+already builds the unseen multiset and deals it out, and only the dealing needs
+to become weighted.
+
+**Why the existing machinery fits.** Self-play already records every decision
+with the position it was made in, and the stored positions carry the TRUE hidden
+cards. So a model of "what does this player hold, given what they have done" is
+a supervised problem with data already on disk - roughly 390,000 labelled
+examples, no new generation needed. That is the same decoupling that let the
+feature encoding change four times without regenerating anything.
+
+**Why it is a better bet than the value head.** A value network competes with an
+8-turn rollout that is already a decent estimator. An inference model competes
+with a uniform prior, which is the weakest possible baseline and provably
+leaves 310 Elo on the table.
+
+**The one caution.** Sharper beliefs make determinized worlds more realistic,
+which helps - but a belief that is confidently WRONG is worse than a uniform
+one, because the search stops hedging. Gate it the same way: arena against the
+identical search with uniform sampling, and watch mean score rather than a
+prediction metric, which has now misled this project four times.
+
+---
+
 ## Cache search priors at node expansion
 
 **Priority: high.** Pure speed, no new machinery, and a prerequisite for both
@@ -180,18 +236,34 @@ Note `determinize` is cheap. An earlier guess that it was the bottleneck at
 
 ## Learned linear evaluator for the rollout leaf
 
-**Priority: medium.** The cheap test of the idea behind the entry below.
+**Priority: DROPPED to low, and probably do not build it.** The premise was
+tested on 2026-08-30 and failed - see below and the running log in
+`docs/alphazero-plan.md`.
 
 **What:** replace the two hand-set constants in `expectedScore` with a linear
 model over ~30 hand-built features, fitted against self-play outcomes, used
 **only at the rollout leaf** and not for ranking moves.
 
-**Why this is not a repeat of the failed fit above:** the earlier attempt
-applied fitted values to both jobs at once. `expectedScore` serves two
-conflicting purposes - leaf value, which wants calibration, and move ranking,
-which wants an incentive to improve the position. Fitting both destroyed the
-ranking. `IsmctsOptions.leafParams` now exists to separate them, so the leaf
-can be calibrated while ranking keeps the hand-set values.
+**The premise was that this is not a repeat of the failed fit**, because the
+earlier attempt applied fitted values to both jobs at once - leaf value, which
+wants calibration, and move ranking, which wants an incentive to improve the
+position. `IsmctsOptions.leafParams` was added to separate them.
+
+**Tested 2026-08-30. The premise was wrong.** Fitted values at the leaf ONLY,
+ranking left hand-set, 200 games at 150ms: mean score 6.41 +/-0.46 against the
+hand-set 2.52 +/-0.36, about **6.7 standard errors worse**. Elo 1469 against
+1531. The wiring was verified before concluding.
+
+The mechanism is capacity, not calibration. Fitting two parameters by mean
+squared error pushes them toward predicting the average: `pMatch` went from
+0.068 to 0.713, which assumes unseen cards usually cancel, so nearly every
+position scores alike and the search has nothing to discriminate on. A linear
+model over ~30 features is far closer to this failed case than to a network,
+which is why this entry is demoted rather than kept as a stepping stone.
+
+The lesson that generalises: **never accept a value function on prediction
+error.** Gate on playing strength in the arena. That is now twice in this
+project that a large accuracy gain came with a large strength loss.
 
 **Why the leaf is worth attacking:** rounds run 50-103 turns and
 `rolloutTurnLimit` is 8, so about **86% of rollouts never reach a real score**
