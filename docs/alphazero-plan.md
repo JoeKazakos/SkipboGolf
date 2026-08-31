@@ -143,6 +143,24 @@ reject. Then re-rate the whole roster and ship the new tier. One or two
 generations probably capture most of the win, because what is being replaced is
 weak; the plan does not assume ten.
 
+## Pending, and BLOCKED until generation 0 self-play finishes
+
+`vite-node` compiles from source at process start, and generation 0 spawns 240
+shard processes over several hours. Editing anything in the self-play import
+closure mid-run would mix code versions across shards. That closure is:
+
+  engine/*, ai/agent.ts, ai/heuristic.ts, ai/ismcts.ts,
+  ai/nn/{contracts,evaluator,features,net,checkpoint,positions,selfplay,selfplay-shard}.ts
+
+Those files are FROZEN until the run completes. Safe to edit meanwhile: docs,
+scripts, ui/*, roster.ts, arena.ts, net-arena.ts, train-run.ts, load.ts.
+
+**The one change waiting on this:** self-play must accept `SP_WEIGHTS` and pass
+an evaluator into `ismctsSearch`, so generation 1 plays its games with
+generation 0's network. `scripts/generation.mjs` already sets that variable and
+`selfplay-shard.ts` does not yet read it. Without this the loop is one round of
+supervised imitation rather than AlphaZero, so it is not optional.
+
 ## Pending: convert the roster from time budgets to iteration counts
 
 **Requested 2026-08-30, and not yet done** because it needs a quiet machine to
