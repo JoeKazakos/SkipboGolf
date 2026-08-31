@@ -28,7 +28,23 @@ declare const process:
   | { env?: Record<string, string | undefined>; stdout?: { write: (s: string) => void } }
   | undefined;
 
-async function buildLadder(iterations: number, dir: string, mixes: number[]): Promise<Agent[]> {
+/**
+ * Equal TIME rather than equal simulations.
+ *
+ * Every arena in this milestone fixed the simulation count, to isolate
+ * evaluation quality from thinking budget. That is the right control for "is
+ * this a better evaluator" and the wrong one for "is this a better opponent",
+ * because it discards the network's one measured advantage: replacing a ~300us
+ * rollout with a 133us forward pass made self-play run in 30 minutes where the
+ * rollout took 70. At a fixed clock the network simply searches more, and a
+ * player waits on a clock, not on a counter.
+ */
+async function buildLadder(
+  iterations: number,
+  dir: string,
+  mixes: number[],
+  budgetMs: number,
+): Promise<Agent[]> {
   const fs = await checkpointFs();
   const meta = JSON.parse(
     new TextDecoder().decode(fs.readFileSync(`${dir}/weights.meta.json`)),
@@ -39,7 +55,11 @@ async function buildLadder(iterations: number, dir: string, mixes: number[]): Pr
     valueCenter: number;
   };
 
-  const common = { maxIterations: iterations, budgetMs: 3_600_000, seed: 4242 } as const;
+  // budgetMs > 0 selects the equal-time comparison; otherwise equal simulations.
+  const common =
+    budgetMs > 0
+      ? ({ budgetMs, maxIterations: 1_000_000, seed: 4242 } as const)
+      : ({ maxIterations: iterations, budgetMs: 3_600_000, seed: 4242 } as const);
   return mixes.map((mix) => {
     const name = mix === 0 ? 'Rollout' : `Mix${Math.round(mix * 100)}`;
     if (mix === 0) return createIsmctsAgent({ ...common, name });
@@ -65,7 +85,8 @@ async function main(): Promise<void> {
   const dir = env.MX_DIR ?? 'training/gen100';
   const mixes = (env.MX_MIXES ?? '0,0.25,0.5,0.75,1').split(',').map(Number);
 
-  const ladder = await buildLadder(iterations, dir, mixes);
+  const budgetMs = Number(env.MX_BUDGET_MS ?? 0);
+  const ladder = await buildLadder(iterations, dir, mixes, budgetMs);
   const out: unknown[] = [];
   for (let g = from; g < to; g++) {
     out.push(await playIndexedGame(ladder, g, { seed, seatCount: seats }));
