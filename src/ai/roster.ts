@@ -108,10 +108,12 @@ export interface OpponentProfile {
 /**
  * The opponents you can seat, weakest first by measured rating.
  *
- * RATINGS BELOW ARE STALE as of 2026-08-31: the searching tiers were converted
- * from millisecond budgets to simulation counts (see note 3), which changes how
- * strongly they play, most of all at large tables. Re-run the ladder before
- * trusting these numbers.
+ * Re-measured 2026-08-31 after the searching tiers moved from millisecond
+ * budgets to simulation counts. The conversion held strength where it was set -
+ * each count is what that tier's old budget bought at a six-player table, and
+ * six players is what the ladder runs - so every tier moved less than its own
+ * error bar. What it buys is consistency at OTHER table sizes, where a clock
+ * used to hand out four times as much thinking at two players as at seven.
  *
  * Measured 2026-08-30 by `node scripts/arena-parallel.mjs --games 480 --roster`
  * (480 games, ~411 per agent, 16 minutes across 18 processes), re-run after
@@ -166,10 +168,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     kind: 'random',
     strength: 1,
     tier: 'Beginner',
-    meanScore: 43.41,
+    meanScore: 42.63,
     winRate: 0.0,
-    elo: 920,
-    eloError: 25,
+    elo: 961,
+    eloError: 26,
   },
   {
     id: 'dot',
@@ -179,10 +181,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     epsilon: 0.4,
     strength: 2,
     tier: 'Casual',
-    meanScore: 20.65,
+    meanScore: 21.18,
     winRate: 0.022,
-    elo: 1313,
-    eloError: 35,
+    elo: 1274,
+    eloError: 30,
   },
   {
     id: 'vin',
@@ -193,10 +195,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     budgetMs: 100,
     strength: 3,
     tier: 'Steady',
-    meanScore: 6.59,
-    winRate: 0.153,
-    elo: 1605,
-    eloError: 33,
+    meanScore: 4.62,
+    winRate: 0.17,
+    elo: 1625,
+    eloError: 31,
   },
   {
     id: 'nel',
@@ -205,10 +207,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     kind: 'heuristic',
     strength: 3,
     tier: 'Steady',
-    meanScore: 7.31,
-    winRate: 0.128,
-    elo: 1579,
-    eloError: 34,
+    meanScore: 7.63,
+    winRate: 0.146,
+    elo: 1570,
+    eloError: 30,
   },
   {
     id: 'ada',
@@ -219,10 +221,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     budgetMs: 400,
     strength: 4,
     tier: 'Strong',
-    meanScore: 4.13,
-    winRate: 0.231,
-    elo: 1650,
-    eloError: 34,
+    meanScore: 2.23,
+    winRate: 0.274,
+    elo: 1677,
+    eloError: 27,
   },
   {
     id: 'rook',
@@ -233,10 +235,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     budgetMs: 1200,
     strength: 4,
     tier: 'Strong',
-    meanScore: 2.38,
-    winRate: 0.291,
-    elo: 1708,
-    eloError: 32,
+    meanScore: 1.74,
+    winRate: 0.277,
+    elo: 1686,
+    eloError: 30,
   },
   {
     id: 'sage',
@@ -247,10 +249,10 @@ export const ROSTER: readonly OpponentProfile[] = [
     budgetMs: 3000,
     strength: 5,
     tier: 'Expert',
-    meanScore: 1.29,
-    winRate: 0.34,
-    elo: 1725,
-    eloError: 36,
+    meanScore: 1.59,
+    winRate: 0.276,
+    elo: 1706,
+    eloError: 30,
   },
 ];
 
