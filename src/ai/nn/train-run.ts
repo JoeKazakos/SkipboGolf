@@ -33,13 +33,15 @@ const join = (...parts: string[]): string => parts.join('/');
  * encoding costs about 6us each - six seconds an epoch, against a heap that
  * would not fit.
  */
+let REVEAL = false;
+
 function batchOf(raw: readonly RawSample[], indices: readonly number[]): TrainSample[] {
   const batch: TrainSample[] = [];
   for (const i of indices) {
     const sample = raw[i];
     const state = positionOf(sample);
     const input = new Float32Array(FEATURE_SIZE);
-    encodeFeatures(state, state.current, input);
+    encodeFeatures(state, state.current, input, REVEAL);
     batch.push({
       input,
       valueTarget: sample.valueTarget,
@@ -68,10 +70,16 @@ async function main(): Promise<void> {
   const shards = Number(env.TR_SHARDS ?? 18);
   const holdoutFraction = Number(env.TR_HOLDOUT ?? 0.1);
   const root = env.TR_ROOT ?? 'training';
+  // Train the encoder to SEE the face-down cards. Correct for a leaf evaluator
+  // inside a determinized search, where the hidden cards are a sample the
+  // search drew - and the stored positions carry the real ones, so no new
+  // self-play is needed to train it. See the note on encodeFeatures.
+  REVEAL = env.TR_REVEAL === '1';
+  const suffix = REVEAL ? '-reveal' : '';
 
   const config: SelfPlayConfig = { ...DEFAULT_SELFPLAY, generation };
   const dir = join(root, `gen${String(generation).padStart(3, '0')}`);
-  const ckptDir = join(dir, 'checkpoints');
+  const ckptDir = join(dir, `checkpoints${suffix}`);
 
   console.log(`training on generation ${generation}`);
   const all = await readGeneration(config, shards, root);
@@ -181,12 +189,18 @@ async function main(): Promise<void> {
   }
 
   // The shippable artefact: weights alone, without optimiser state.
-  await writeFileAtomic(join(dir, 'weights.bin'), serializeWeights(trainer.net));
+  await writeFileAtomic(join(dir, `weights${suffix}.bin`), serializeWeights(trainer.net));
   await writeFileAtomic(
-    join(dir, 'weights.meta.json'),
-    new TextEncoder().encode(JSON.stringify(metaFor(trainer.net, `generation ${generation}`), null, 2)),
+    join(dir, `weights${suffix}.meta.json`),
+    new TextEncoder().encode(
+      JSON.stringify(
+        metaFor(trainer.net, `generation ${generation}${REVEAL ? ', reveal encoder' : ''}`),
+        null,
+        2,
+      ),
+    ),
   );
-  console.log(`  wrote ${dir}/weights.bin and weights.meta.json`);
+  console.log(`  wrote ${dir}/weights${suffix}.bin`);
 }
 
 void main();

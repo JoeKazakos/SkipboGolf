@@ -100,11 +100,16 @@ const unseenCounts: number[] = new Array<number>(14).fill(0);
 /** Keeps every written feature finite and bounded, whatever the arithmetic did. */
 const clamp = (v: number): number => (v > 1 ? 1 : v < -1 ? -1 : v === v ? v : 0);
 
-/** Masks the face-down cards out of a grid into a reused buffer. */
-function fillView(grid: readonly Slot[], out: (Rank | null)[]): void {
+/**
+ * Masks the face-down cards out of a grid into a reused buffer.
+ *
+ * `reveal` turns the masking off, which is ONLY correct inside an already
+ * determinized world - see `encodeFeatures`.
+ */
+function fillView(grid: readonly Slot[], out: (Rank | null)[], reveal = false): void {
   for (let i = 0; i < GRID_SIZE; i++) {
     const slot = grid[i];
-    out[i] = slot.faceUp ? slot.card.rank : null;
+    out[i] = slot.faceUp || reveal ? slot.card.rank : null;
   }
 }
 
@@ -135,7 +140,37 @@ function expectedColumn(top: Rank | null, bottom: Rank | null): number {
  * every node it evaluates. The result is a pure function of the state and the
  * viewer: same input, same bits, always.
  */
-export function encodeFeatures(s: GameState, viewer: number, out?: Float32Array): Float32Array {
+/**
+ * `reveal` shows the face-down cards to the encoder.
+ *
+ * This is NOT a way to cheat, and it is not optional for a leaf evaluator
+ * inside ISMCTS - it is what the rollout it replaces has always done.
+ *
+ * The search does not evaluate the real position. Every iteration first samples
+ * a world from the player's own belief, and the leaf is reached inside THAT
+ * world. A heuristic rollout plays the sampled cards forward, so its value
+ * depends on which world was drawn, and averaging over iterations gives the
+ * expectation over the belief. That is the estimator ISMCTS is built around.
+ *
+ * A masked encoder cannot do this. Being invariant to the determinization - the
+ * property `features.test.ts` asserts, and the right property for an agent
+ * reasoning at the root - it returns the SAME value in every sampled world, so
+ * a node visited a hundred times learns no more than from one visit, and the
+ * world-specific discrimination the search runs on is washed out. Measured on
+ * generation 0: the masked head spread only 0.0341 across sibling moves against
+ * a rollout's 0.0732, and it cost 3.5 standard errors of mean score despite
+ * being the better global predictor.
+ *
+ * So: `reveal: false` for anything reasoning about the true position, which is
+ * every caller outside a determinized search. `reveal: true` only for a leaf
+ * evaluator, where the "hidden" cards are a sample the search itself drew.
+ */
+export function encodeFeatures(
+  s: GameState,
+  viewer: number,
+  out?: Float32Array,
+  reveal = false,
+): Float32Array {
   const f = out ?? new Float32Array(FEATURE_SIZE);
   if (f.length !== FEATURE_SIZE) {
     throw new Error(`feature buffer must hold ${FEATURE_SIZE} values, got ${f.length}`);
@@ -145,7 +180,7 @@ export function encodeFeatures(s: GameState, viewer: number, out?: Float32Array)
   const numPlayers = s.players.length;
   let at = 0;
 
-  fillView(s.players[viewer].grid, viewScratch);
+  fillView(s.players[viewer].grid, viewScratch, reveal);
 
   viewerHasRank.fill(false);
   for (let i = 0; i < GRID_SIZE; i++) {
@@ -249,7 +284,7 @@ export function encodeFeatures(s: GameState, viewer: number, out?: Float32Array)
       expected = viewerExpected;
       faceUp = viewerFaceUp;
     } else {
-      fillView(player.grid, seatScratch);
+      fillView(player.grid, seatScratch, reveal);
       expected = expectedScore(seatScratch as GridView);
       for (let i = 0; i < GRID_SIZE; i++) if (seatScratch[i] != null) faceUp += 1;
       if (expected < worstOpponentExpected) worstOpponentExpected = expected;

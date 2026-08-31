@@ -35,6 +35,15 @@ export interface EvaluatorCalibration {
   valueScale?: number;
   /** The point deviations are measured from; the outcome mean by default. */
   valueCenter?: number;
+  /**
+   * Let the encoder see the face-down cards.
+   *
+   * Correct, and necessary, for a leaf evaluator inside ISMCTS: the leaf sits
+   * in a world the search itself sampled, and evaluating that world is exactly
+   * what the rollout being replaced does. See the note on `encodeFeatures`.
+   * Never set this for anything reasoning about the real position.
+   */
+  reveal?: boolean;
 }
 
 export function createNetEvaluator(
@@ -51,11 +60,12 @@ export function createNetEvaluator(
   const buffer = new Float32Array(FEATURE_SIZE);
   const scale = calibration.valueScale ?? 1;
   const center = calibration.valueCenter ?? 0.5;
+  const reveal = calibration.reveal ?? false;
   if (scale === 1) {
     return {
       name,
       evaluate(s: GameState, viewer: number): NetOutput {
-        encodeFeatures(s, viewer, buffer);
+        encodeFeatures(s, viewer, buffer, reveal);
         // `forward` returns buffers it owns and reuses, so callers must read
         // the result before evaluating anything else. Both callers below do.
         return net.forward(buffer);
@@ -72,7 +82,7 @@ export function createNetEvaluator(
   return {
     name,
     evaluate(s: GameState, viewer: number): NetOutput {
-      encodeFeatures(s, viewer, buffer);
+      encodeFeatures(s, viewer, buffer, reveal);
       const raw = net.forward(buffer);
       for (let i = 0; i < calibrated.value.length; i++) {
         const stretched = center + (raw.value[i] - center) * scale;

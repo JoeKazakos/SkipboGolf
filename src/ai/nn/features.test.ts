@@ -189,3 +189,52 @@ describe('feature encoding', () => {
     expect(micros).toBeLessThan(250);
   });
 });
+
+describe('the reveal encoder', () => {
+  /**
+   * `reveal` is the one way this encoder is allowed to see hidden cards, and it
+   * is only correct inside an already determinized search. These tests pin down
+   * both halves: that it really does see them, and that it is off by default so
+   * no ordinary caller can reach it by accident.
+   */
+  it('is off by default, keeping determinization invariance', () => {
+    const rng = makeRng(8080);
+    const s = playForward(606, 6, 70);
+    const base = encodeFeatures(s, s.current);
+    for (let w = 0; w < 4; w++) {
+      const world = determinize(s, s.current, rng);
+      expect([...encodeFeatures(world, s.current)]).toEqual([...base]);
+    }
+  });
+
+  it('does see the sampled world when switched on', () => {
+    // The point of the option: the value must move with the world, because
+    // that variation IS the signal a leaf evaluator contributes to the search.
+    const rng = makeRng(9090);
+    const s = playForward(707, 6, 70);
+    const buffer = new Float32Array(FEATURE_SIZE);
+    const base = [...encodeFeatures(s, s.current, buffer, true)];
+    let differed = 0;
+    for (let w = 0; w < 6; w++) {
+      const world = determinize(s, s.current, rng);
+      const other = [...encodeFeatures(world, s.current, buffer, true)];
+      if (other.some((v, i) => v !== base[i])) differed += 1;
+    }
+    expect(differed).toBeGreaterThan(3);
+  });
+
+  it('still produces finite, bounded features when revealing', () => {
+    const buffer = new Float32Array(FEATURE_SIZE);
+    for (const players of [2, 4, 7]) {
+      for (const steps of [10, 90, 200]) {
+        const s = playForward(1234 + players + steps, players, steps);
+        const f = encodeFeatures(s, s.current, buffer, true);
+        expect(f.length).toBe(FEATURE_SIZE);
+        for (const v of f) {
+          expect(Number.isFinite(v)).toBe(true);
+          expect(Math.abs(v)).toBeLessThanOrEqual(1);
+        }
+      }
+    }
+  });
+});
