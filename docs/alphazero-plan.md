@@ -570,3 +570,31 @@ offset, sibling swings, the reveal encoder, generation 1's apparent climb,
 belief weighting. Prediction quality never once predicted playing strength. The
 arena decided every question, and the diagnostics - however well reasoned -
 decided none of them.
+
+- **2026-08-31 - the equal-TIME test, which was the last condition that could
+  have changed the verdict. It does not.**
+
+  Every earlier arena fixed the simulation count, which is the right control for
+  evaluation quality and the wrong one for a shipped opponent - it discards the
+  network's one real advantage. A 133us forward pass replaces a ~300us rollout,
+  and measured at a 400ms clock on a mid-game position:
+
+    rollout   507 iterations
+    network  1281 iterations   -> 2.53x more search in the same time
+
+  480 games at a fixed 400ms clock:
+
+  | agent | elo | mean score |
+  | ----- | --- | ---------- |
+  | Rollout | 1516 | 4.61 |
+  | Mix50 | 1508 | 4.82 |
+  | Mix100 | 1476 | 7.03 |
+
+  The pure network is 4.07 standard errors WORSE on mean score while searching
+  two and a half times more. An even blend ties, at 0.20 and 0.37 sd. The extra
+  thinking does not come close to covering the deficit, which is consistent with
+  what the roster already said: 13.5x more search buys 29 Elo here, so 2.53x is
+  worth single digits and the deficit is far larger than that.
+
+  This was the last untested condition in which the network could have won, and
+  it is the condition the product actually runs under. The verdict stands.
