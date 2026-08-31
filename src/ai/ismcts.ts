@@ -233,7 +233,9 @@ function makeNode(playerToAct: number, numPlayers: number): Node {
  * from whichever world first offered the action rather than being implicitly
  * re-averaged across worlds every visit, and a cached set need no longer
  * contain the 1.0 that `policyPriors` normalises to. It is what AlphaZero-style
- * searches do, and it was measured neutral on the ladder before it landed.
+ * searches do. NEUTRALITY ON THE LADDER IS NOT YET ESTABLISHED: the run that
+ * was to check it was interrupted. Treat the ratings in roster.ts as provisional
+ * until `node scripts/arena-parallel.mjs --games 480 --roster` has been redone.
  */
 export function cachedPriors(
   cache: Map<string, number>,
