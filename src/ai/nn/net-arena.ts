@@ -31,14 +31,18 @@ declare const process:
  * silently loading the wrong shape would produce a network that plays badly
  * for a reason no measurement would ever reveal.
  */
-export async function loadEvaluator(path: string, name = 'net') {
+export async function loadEvaluator(
+  path: string,
+  name = 'net',
+  calibration: { valueScale?: number; valueCenter?: number } = {},
+) {
   const fs = await checkpointFs();
   const metaPath = path.replace(/\.bin$/, '.meta.json');
   if (!fs.existsSync(path)) throw new Error(`net-arena: no weights at ${path}`);
   if (!fs.existsSync(metaPath)) throw new Error(`net-arena: no sidecar at ${metaPath}`);
   const meta = JSON.parse(new TextDecoder().decode(fs.readFileSync(metaPath))) as WeightsMeta;
   const net = deserializeWeights(fs.readFileSync(path), meta);
-  return createNetEvaluator(net, name);
+  return createNetEvaluator(net, name, calibration);
 }
 
 async function main(): Promise<void> {
@@ -50,6 +54,15 @@ async function main(): Promise<void> {
   const opponents = (env.NA_OPPONENTS ?? 'nel,vin,ada,rook').split(',');
 
   const evaluator = await loadEvaluator(weightsPath, 'Net');
+
+  // The calibrated variant, when a scale is given. Same weights, same ordering
+  // - only the value head's spread is stretched, so any difference between
+  // these two rows is the exploration balance and nothing else.
+  const scale = Number(env.NA_SCALE ?? 0);
+  const center = Number(env.NA_CENTER ?? 0.6436);
+  const calibrated = scale > 0
+    ? await loadEvaluator(weightsPath, 'NetCal', { valueScale: scale, valueCenter: center })
+    : null;
 
   // The network agent gets the SAME simulation count as the ISMCTS control, so
   // the comparison isolates evaluation quality rather than rewarding whichever
@@ -73,7 +86,18 @@ async function main(): Promise<void> {
     seed: 4242,
   });
 
+  const calibratedAgent: Agent | null = calibrated
+    ? createIsmctsAgent({
+        name: 'NetCal',
+        evaluator: calibrated,
+        maxIterations: iterations,
+        budgetMs: 3_600_000,
+        seed: 4242,
+      })
+    : null;
+
   const ladder: Agent[] = [
+    ...(calibratedAgent ? [calibratedAgent] : []),
     netAgent,
     control,
     ...opponents.map((id) => createAgentForProfile(profileById(id.trim()), 99)),

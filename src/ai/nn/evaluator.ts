@@ -16,7 +16,32 @@ import type { Action } from '../../engine/types';
  * thousands of times per search and a fresh 343-float array each time would
  * cost more than the arithmetic it feeds.
  */
-export function createNetEvaluator(net: Net, name = 'net'): Evaluator {
+export interface EvaluatorCalibration {
+  /**
+   * Multiplies the value head's deviation from `valueCenter`.
+   *
+   * A trained head regresses toward the mean: generation 0 predicted with a
+   * spread of 0.079 where the outcomes it predicts have a spread of 0.174.
+   * That is fine for a predictor and quietly bad for a SEARCH, because UCT
+   * compares a value difference against a fixed exploration term. Measured at
+   * 400 simulations over ten actions that term is 0.116, so it runs at 0.63x
+   * the static estimate's value signal - value leads - but 1.47x the raw
+   * network's. The search stops being guided and starts wandering, and a
+   * better-ordered evaluation loses to a worse one.
+   *
+   * Scaling restores the balance without touching the ordering the network
+   * learned. It is a stretch, not a retraining.
+   */
+  valueScale?: number;
+  /** The point deviations are measured from; the outcome mean by default. */
+  valueCenter?: number;
+}
+
+export function createNetEvaluator(
+  net: Net,
+  name = 'net',
+  calibration: EvaluatorCalibration = {},
+): Evaluator {
   if (net.arch.inputSize !== FEATURE_SIZE) {
     throw new Error(
       `evaluator: network expects ${net.arch.inputSize} inputs but the encoder ` +
@@ -24,13 +49,38 @@ export function createNetEvaluator(net: Net, name = 'net'): Evaluator {
     );
   }
   const buffer = new Float32Array(FEATURE_SIZE);
+  const scale = calibration.valueScale ?? 1;
+  const center = calibration.valueCenter ?? 0.5;
+  if (scale === 1) {
+    return {
+      name,
+      evaluate(s: GameState, viewer: number): NetOutput {
+        encodeFeatures(s, viewer, buffer);
+        // `forward` returns buffers it owns and reuses, so callers must read
+        // the result before evaluating anything else. Both callers below do.
+        return net.forward(buffer);
+      },
+    };
+  }
+
+  // Calibrated path keeps its own value buffer rather than writing through the
+  // network's, which the network reuses and would be surprising to mutate.
+  const calibrated: NetOutput = {
+    value: new Float32Array(net.arch.valueSize),
+    policy: new Float32Array(net.arch.policySize),
+  };
   return {
     name,
     evaluate(s: GameState, viewer: number): NetOutput {
       encodeFeatures(s, viewer, buffer);
-      // `forward` returns buffers it owns and reuses, so callers must read the
-      // result before evaluating anything else. Both callers below do.
-      return net.forward(buffer);
+      const raw = net.forward(buffer);
+      for (let i = 0; i < calibrated.value.length; i++) {
+        const stretched = center + (raw.value[i] - center) * scale;
+        // Clamped: the reward space is [0,1] and the search assumes it.
+        calibrated.value[i] = stretched < 0 ? 0 : stretched > 1 ? 1 : stretched;
+      }
+      calibrated.policy.set(raw.policy);
+      return calibrated;
     },
   };
 }
