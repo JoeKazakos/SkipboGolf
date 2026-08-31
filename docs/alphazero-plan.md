@@ -502,3 +502,71 @@ than a competent rollout.
   The policy head remains neutral - it ties its control everywhere - so a
   learned prior is sound in principle and simply unprofitable at 133us against a
   5.4us heuristic.
+
+- **2026-08-31 - belief weighting fails at every strength, and the milestone
+  closes.**
+
+  480 games, identical search and simulation count, the only difference being
+  how `determinize` deals the unseen cards. Temperature 0 IS the uniform deal:
+
+  | temperature | elo vs uniform | mean score vs uniform |
+  | ----------- | -------------- | --------------------- |
+  | 0.25 | -58 (1.60 sd) | +0.35 |
+  | 0.50 | -48 (1.19 sd) | +1.26 |
+  | 0.75 | -44 (1.07 sd) | +1.56 |
+  | 1.00 | -30 (0.71 sd) | +0.83 |
+
+  Uniform is best on BOTH metrics at every temperature. Four comparisons, each
+  around one standard error, all pointing the same way.
+
+  The model genuinely predicts better - 22.5% of the cross-entropy against the
+  uniform prior on 240,000 held-out rows - and it still does not help. The most
+  likely reason is the size of the gap it is trying to close. Uniform leaves
+  about 12.8 effective ranks; the model narrows that to about 5.8; the Oracle
+  has ZERO uncertainty. Capturing a fifth of the entropy is a long way from
+  knowing, and a per-slot independent weighting is not a posterior sample
+  anyway - it is a marginal applied slot by slot, which introduces bias the
+  search then averages over. That bias apparently costs more than the sharper
+  prior earns.
+
+## Final verdict on the milestone
+
+**Nothing beat the rollout-based ISMCTS that existed before this work.** What
+was tried, all measured against a control running the identical search at the
+identical simulation count:
+
+- 7 value-network configurations - masked, reveal, calibrated, raw, shared
+  encoder, policy-only, value-only
+- 4 generations of the self-play loop
+- 5 leaf blend weights from 0 to 1
+- 5 belief temperatures from uniform to full confidence
+
+One parity result, no win.
+
+**Why, as best it can be established.** The Oracle probe says 310 Elo sits in
+hidden-information handling, and the roster says 13.5x more search buys 29 Elo
+inside its own error bars. Information is worth roughly an order of magnitude
+more than compute here. Every value-network variant was spending effort on the
+axis that had already stopped paying, and the one attempt on the right axis
+closed only a fifth of the entropy - not enough to matter, and biased in a way
+that cost more than it earned.
+
+**What survives and is worth keeping:**
+
+- The ceiling measurement, which reframes the game: not near its skill ceiling,
+  and the headroom is in information rather than evaluation.
+- Prior caching, which flattened per-iteration cost with tree depth: 319us to
+  64us at Sage's budget, ladder-neutral.
+- Simulation counts replacing millisecond budgets, so a tier's strength is a
+  property of the tier and not of the machine or the table size.
+- Resumable sharded self-play, position storage that outlived four encoder
+  changes without regenerating data, checkpointed training, a pooled ladder
+  with untrained baselines, the perfect-information probe, and the
+  hidden-hand inference probe.
+
+**The discipline lesson, recorded because it recurred all day.** Every
+mechanism proposed here was refuted by measurement: smoother outputs, the mean
+offset, sibling swings, the reveal encoder, generation 1's apparent climb,
+belief weighting. Prediction quality never once predicted playing strength. The
+arena decided every question, and the diagnostics - however well reasoned -
+decided none of them.
