@@ -26,12 +26,16 @@ async function main(): Promise<void> {
   const seed = Number(env.CE_SEED ?? 515151);
 
   const common = { maxIterations: iterations, budgetMs: 3_600_000, seed: 4242 } as const;
+  // The full oracle's advantage, decomposed. Knowing what an OPPONENT holds is
+  // something inference can chase, because their choices leak it. Knowing your
+  // OWN face-down cards is pure chance and leaks from nothing, so whatever
+  // share of the gap sits there is unreachable by any model.
   const ladder: Agent[] = [
-    createIsmctsAgent({ ...common, name: 'Oracle', perfectInfo: true }),
+    createIsmctsAgent({ ...common, name: 'OracleAll', perfectInfo: true }),
+    createIsmctsAgent({ ...common, name: 'OracleSelf', oracle: 'self' }),
+    createIsmctsAgent({ ...common, name: 'OracleOpp', oracle: 'opponents' }),
     createIsmctsAgent({ ...common, name: 'Normal' }),
-    createAgentForProfile(profileById('rook'), 99),
     createAgentForProfile(profileById('ada'), 99),
-    createAgentForProfile(profileById('vin'), 99),
     createAgentForProfile(profileById('nel'), 99),
   ];
 

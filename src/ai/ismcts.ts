@@ -120,6 +120,18 @@ export interface IsmctsOptions {
    * network will move it. Never expose this to a seated opponent.
    */
   perfectInfo?: boolean;
+  /**
+   * A PARTIAL oracle, for decomposing where the perfect-information advantage
+   * comes from. Measurement only; never expose this to a seated opponent.
+   *
+   * 'self' keeps the viewer's own face-down cards true and scrambles everyone
+   * else's; 'opponents' does the reverse. The distinction decides whether the
+   * 310 Elo the full oracle showed is reachable at all: knowing what an
+   * OPPONENT holds is a thing inference can chase, because their choices leak
+   * it, while knowing your OWN face-down cards is pure chance and leaks from
+   * nothing. If most of the gap is the latter, no model can close it.
+   */
+  oracle?: 'self' | 'opponents';
   /** Evaluation parameters used to RANK moves; defaults to the hand-set ones. */
   evalParams?: EvalParams;
   /**
@@ -175,6 +187,9 @@ export function actionKey(a: Action): string {
  */
 export type Beliefs = readonly (readonly number[] | undefined)[] | undefined;
 
+/** Which seats keep their true face-down cards through a determinization. */
+export type OracleScope = 'self' | 'opponents' | undefined;
+
 /**
  * Draws one index from `pool` with probability proportional to `weight`, then
  * removes it. Falls back to uniform when the weights are degenerate, so a bad
@@ -204,6 +219,7 @@ export function determinize(
   viewer: number,
   rng: Rng,
   beliefs?: Beliefs,
+  oracle?: OracleScope,
 ): GameState {
   const t = clone(s);
 
@@ -212,6 +228,21 @@ export function determinize(
   for (const card of knownCards(s, viewer)) {
     counts[card.rank] -= 1;
     seenIds.add(card.id);
+  }
+  // A partial oracle treats the seats it can see as already known, so their
+  // cards leave the unseen pool exactly as visible ones do and the census
+  // still balances.
+  const oracleSeat = (seat: number): boolean =>
+    oracle === 'self' ? seat === viewer : oracle === 'opponents' ? seat !== viewer : false;
+  if (oracle) {
+    for (let p = 0; p < s.players.length; p++) {
+      if (!oracleSeat(p)) continue;
+      for (const slot of s.players[p].grid) {
+        if (slot.faceUp || seenIds.has(slot.card.id)) continue;
+        counts[slot.card.rank] -= 1;
+        seenIds.add(slot.card.id);
+      }
+    }
   }
 
   const unseenRanks: Rank[] = [];
@@ -233,8 +264,10 @@ export function determinize(
   };
 
   if (beliefs == null) {
-    for (const player of t.players) {
-      for (const slot of player.grid) if (!slot.faceUp) slot.card = take();
+    for (let p = 0; p < t.players.length; p++) {
+      // An oracle seat keeps the cards it really has.
+      if (oracleSeat(p)) continue;
+      for (const slot of t.players[p].grid) if (!slot.faceUp) slot.card = take();
     }
   } else {
     // Weighted deal for the FACE-DOWN GRID CARDS only. Those are what an
@@ -481,7 +514,9 @@ export function ismctsSearch(
 
     // Perfect information skips the resampling entirely: the "sampled world"
     // is the real one. Everything downstream is unchanged.
-    let s = options.perfectInfo ? clone(root) : determinize(root, player, rng, beliefs);
+    let s = options.perfectInfo
+      ? clone(root)
+      : determinize(root, player, rng, beliefs, options.oracle);
     let node = tree;
     const path: Node[] = [node];
 
