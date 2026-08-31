@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "arena": "vite-node src/ai/arena.ts -- --arena",
+    "bench": "vite-node src/ai/bench.ts -- --bench",
     "fit": "vite-node src/ai/fit-run.ts -- --fit",
     "fit:arena": "vite-node src/ai/fit-arena.ts -- --fit-arena",
     "fit:sweep": "vite-node src/ai/fit-sweep.ts -- --sweep",
