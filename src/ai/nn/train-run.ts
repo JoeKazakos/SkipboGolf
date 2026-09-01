@@ -127,7 +127,25 @@ async function main(): Promise<void> {
   } else {
     const hidden = (env.TR_HIDDEN ?? '').split(',').filter(Boolean).map(Number);
     const arch = hidden.length > 0 ? { ...DEFAULT_ARCH, hidden } : DEFAULT_ARCH;
-    trainer = new Trainer(Net.create(arch, 20260830), { learningRate, batchSize, seed: 7 });
+    /**
+     * TR_POLICY_ONLY drops the value head's gradient.
+     *
+     * The two heads share a trunk, and only one of them can learn: the policy
+     * loss falls steadily with capacity while the value loss has sat at 0.638
+     * through every configuration tried, because the final reward is not
+     * determined by a mid-game position. A head chasing an unlearnable target
+     * still pulls the shared trunk toward representations that serve it, so it
+     * may be spending capacity the policy head could use. The architecture
+     * bench trained policy-only and found width paying; this trainer trains
+     * both and found it not paying. That is the difference worth testing.
+     */
+    const policyOnly = env.TR_POLICY_ONLY === '1';
+    trainer = new Trainer(Net.create(arch, 20260830), {
+      learningRate,
+      batchSize,
+      seed: 7,
+      ...(policyOnly ? { valueLossWeight: 0 } : {}),
+    });
     console.log(`  fresh network: ${trainer.net.parameterCount()} parameters`);
   }
 

@@ -24,7 +24,8 @@
     "train:shared": "vite-node src/ai/nn/train-shared.ts",
     "netladder": "node scripts/netladder.mjs",
     "gen3p": "node scripts/gen3p.mjs",
-    "infer:probe": "vite-node src/ai/nn/infer-probe.ts"
+    "infer:probe": "vite-node src/ai/nn/infer-probe.ts",
+    "arch:bench": "vite-node src/ai/nn/arch-bench.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
