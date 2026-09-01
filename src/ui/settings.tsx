@@ -14,6 +14,15 @@ export interface Settings {
   showScoreBreakdown: boolean;
   /** Animate cards moving between the piles, the hand and the grid. */
   animateCards: boolean;
+  /**
+   * Shrink everything so the whole table fits one screen without scrolling.
+   *
+   * On a phone the board is taller than the viewport, so following the round
+   * means scrolling between your own hand and the opponents you are racing.
+   * This trades card size for seeing all of it at once, which is the trade
+   * worth having while a round is actually being played.
+   */
+  compactBoard: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -22,6 +31,9 @@ export const DEFAULT_SETTINGS: Settings = {
   // the scorecard itself for anyone who wants it.
   showScoreBreakdown: false,
   animateCards: true,
+  // Off by default: on a desktop there is room for the full-size board, and
+  // shrinking it there would only make the cards harder to read for no gain.
+  compactBoard: false,
 };
 
 const STORAGE_KEY = 'skipbo-golf.settings.v1';
@@ -45,6 +57,8 @@ export function loadSettings(): Settings {
         typeof got.showScoreBreakdown === 'boolean'
           ? got.showScoreBreakdown
           : DEFAULT_SETTINGS.showScoreBreakdown,
+      compactBoard:
+        typeof got.compactBoard === 'boolean' ? got.compactBoard : DEFAULT_SETTINGS.compactBoard,
       animateCards:
         typeof got.animateCards === 'boolean'
           ? got.animateCards
@@ -203,6 +217,21 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           <span>
             <strong>Explain the final score</strong>
             <small>Show how each hand scored on the round-over card.</small>
+          </span>
+        </label>
+
+        <label className="setting">
+          <input
+            type="checkbox"
+            checked={settings.compactBoard}
+            onChange={(e) => set('compactBoard', e.target.checked)}
+          />
+          <span>
+            <strong>Fit the whole table on one screen</strong>
+            <small>
+              Smaller cards, everything visible at once without scrolling. Best on a phone,
+              and better still turned sideways.
+            </small>
           </span>
         </label>
 

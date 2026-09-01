@@ -2140,3 +2140,174 @@ button.spot--legal:focus-visible .card {
   fill: var(--ink-soft);
   opacity: 0.85;
 }
+
+/* ------------------------------------------------- fit the table on a screen
+   On a phone the board is taller than the viewport, so following a round means
+   scrolling between your own hand and the opponents you are racing. This trades
+   card size for seeing all of it at once.
+
+   It is a display choice only: nothing here changes what is rendered, so the
+   rules, the search and every test are untouched.
+
+   The sizing is driven from one variable. A first attempt shrank padding and
+   gaps by hand and only halved the overflow, because the cards themselves are
+   most of the height and were barely touched. Everything below scales off
+   --cc, so making it fit is one number rather than twenty. */
+.app--compact {
+  --cc: 15px;          /* width of one opponent card; everything derives */
+  padding: 3px;
+  gap: 3px;
+  /*
+   * `zoom` scales the LAYOUT, not just the paint, so everything inside keeps
+   * its proportions and the page simply needs less room - which is what makes
+   * this fit by construction rather than by tuning each block in turn. A
+   * transform would leave the original space reserved and scroll anyway.
+   *
+   * Set per breakpoint below; 1 here so a wide screen is untouched.
+   */
+  zoom: 1;
+}
+
+.app--compact .topbar {
+  padding: 1px 4px;
+  gap: 4px;
+}
+.app--compact .topbar__title { font-size: 12px; }
+.app--compact .turnbar { padding: 1px 6px; font-size: 11px; }
+.app--compact .topbar button { padding: 2px 6px; font-size: 11px; }
+
+.app--compact .table {
+  padding: 4px;
+  gap: 4px;
+  border-radius: 8px;
+}
+
+/* Wrap rather than forcing one row. Six seats across a 390px phone left each
+   one narrower than its own contents and pushed 49px off the right edge; in
+   portrait they wrap to two rows, and in landscape there is room for one. */
+.app--compact .opponents {
+  gap: 3px;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--cc) * 5 + 16px), 1fr));
+}
+
+.app--compact .seat {
+  padding: 2px 3px 3px;
+  border-radius: 6px;
+}
+.app--compact .seat__head,
+.app--compact .seat__meta,
+.app--compact .seat__foot {
+  font-size: 9px;
+  gap: 3px;
+  line-height: 1.2;
+}
+.app--compact .seat__name { font-size: 10px; }
+/* The tier badge is for CHOOSING an opponent, which already happened, and at
+   this size it crowds the name into the face-up count until they overlap. */
+.app--compact .badge--tier { display: none; }
+
+/* The header is name on the left, count on the right, with room between. */
+.app--compact .seat__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+.app--compact .seat__name {
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app--compact .grid--sm { gap: 1px; }
+.app--compact .grid--sm .card--sm { max-width: var(--cc); }
+
+/* The human grid is the single biggest block of height. The coordinate labels
+   below each spot needed a 20px row-gap on their own. */
+/* Your own hand is the one you read every turn, so it gets the space the
+   layout frees up rather than being shrunk to match the opponents. */
+.app--compact .grid--lg {
+  max-width: calc(var(--cc) * 5 * 3.4);
+  column-gap: 3px;
+  row-gap: 3px;
+  margin-bottom: 3px;
+}
+.app--compact .spot__coord { display: none; }
+
+.app--compact .card--md { width: calc(var(--cc) * 1.7); height: calc(var(--cc) * 2.4); }
+.app--compact .card--lg { width: calc(var(--cc) * 1.9); height: calc(var(--cc) * 2.7); }
+
+.app--compact .humanarea,
+.app--compact .seat--human {
+  padding: 4px;
+  gap: 4px;
+}
+
+/* Commentary, not the game. It collapses to a strip so the board keeps the
+   height. */
+.app--compact .side { gap: 3px; }
+.app--compact .log {
+  max-height: 60px;
+  overflow-y: auto;
+  font-size: 10px;
+}
+.app--compact .panel-card { padding: 6px; }
+
+/* Measured, not guessed. In landscape the two biggest blocks were not the
+   cards at all: the topbar wrapped its buttons onto four rows (96px), and the
+   human area stacked its holding card, buttons and discard BELOW the grid
+   because .human-body wraps - 296px for an 89px grid. Shrinking cards further
+   would never have fixed either. */
+.app--compact .topbar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.app--compact .topbar::-webkit-scrollbar { display: none; }
+.app--compact .topbar > * { flex: 0 0 auto; }
+
+.app--compact .human-body {
+  flex-wrap: nowrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+/* The side controls sit BESIDE the grid and run across rather than down. */
+.app--compact .human-side {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+}
+.app--compact .human-side .btn { padding: 3px 8px; font-size: 11px; }
+.app--compact .mini-label { font-size: 9px; }
+.app--compact .seat--human { padding: 4px 6px 6px; }
+
+/* Landscape on a phone is short rather than narrow, so the constraint is
+   height: the side column moves beside the table instead of under it, and the
+   cards can afford to be slightly larger. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .app--compact {
+    zoom: 0.56;
+    --cc: 16px;
+    grid-template-columns: minmax(0, 1fr) 170px;
+    grid-template-areas:
+      "top top"
+      "banner banner"
+      "table side";
+  }
+  .app--compact .log { max-height: 90px; }
+  /* Landscape has width to spare, so the hand can be larger still. */
+  .app--compact .grid--lg { max-width: calc(var(--cc) * 5 * 4.2); }
+}
+
+/* Portrait phones are the tightest case: six seats over two rows plus a hand. */
+@media (orientation: portrait) and (max-width: 520px) {
+  .app--compact {
+    zoom: 0.63;
+    --cc: 13px;
+  }
+}

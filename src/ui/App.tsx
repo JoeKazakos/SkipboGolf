@@ -8,7 +8,7 @@ import { OpponentSeat } from './OpponentSeat';
 import { HUMAN, playerName } from './format';
 import { DEFAULT_OPPONENTS, DEFAULT_PRESET_ID, presetSeats, profileById } from '../ai/roster';
 import { DEFAULT_AI_DELAY_MS, useGame, type UseGameOptions } from './useGame';
-import { SettingsPanel } from './settings';
+import { SettingsPanel, useSettings } from './settings';
 import { RulesPanel } from './RulesPanel';
 import { AnalysisPanel } from './AnalysisPanel';
 import { returns, stillToActInFinalCycle } from '../engine/state';
@@ -61,6 +61,10 @@ export function App(props: AppProps = {}) {
     clearHint,
   } = useGame({ ...props, aiDelayMs: Math.round(baseDelay * speed) });
 
+  // Compact mode is a display choice, so it rides on the root class and is
+  // handled entirely in CSS rather than by rendering anything different.
+  const { settings } = useSettings();
+
   const { onStateChange } = props;
   useEffect(() => {
     onStateChange?.(game);
@@ -112,7 +116,7 @@ export function App(props: AppProps = {}) {
     game.triggerPlayer !== null && game.finalTurnsRemaining !== null && !game.terminal;
 
   return (
-    <div className="app">
+    <div className={`app${settings.compactBoard ? ' app--compact' : ''}`}>
       <header className="topbar">
         <h1 className="topbar__title">Skip-Bo Golf</h1>
         <div className={`turnbar ${isHumanTurn ? 'turnbar--mine' : ''}`} aria-live="polite">
