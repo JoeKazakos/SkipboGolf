@@ -1,7 +1,15 @@
 # Skip-Bo Golf
 
-A browser implementation of Skip-Bo Golf: one human against five computer opponents,
-six players, one round, lowest score wins.
+**[Play it in your browser](https://joekazakos.github.io/SkipboGolf/)**
+
+A browser implementation of Skip-Bo Golf: you against one to six computer
+opponents, one round, lowest score wins. Nothing to install, and it runs
+entirely on your machine - no server, no accounts, no data leaves the page.
+
+Pick your opponents from a roster of seven, each with a measured rating from
+random play at 961 Elo up to 1706. The searching tiers run an Information Set
+Monte Carlo Tree Search in a Web Worker, so they think without freezing the
+page.
 
 The canonical rules live in [game-description.md](game-description.md). Section 15 of that
 document records every ambiguity that was resolved during implementation, including the two
